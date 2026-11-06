@@ -11,15 +11,14 @@
 const SPREADSHEET_ID = '1bM68aArN9WAbwrvFrKC1hpAy335SSgzZPZBtDp-Znpc';
 const SPREADSHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit?gid=0#gid=0`;
 
-// หาก Deploy Apps Script แล้ว สามารถนำ Web App URL มาใส่เป็นค่าเริ่มต้นตรงนี้ได้ทันที
-// หรือตั้งค่าผ่านปุ่ม "เชื่อมต่อ Google Sheets" บนหน้าเว็บแอพ
-const DEFAULT_GAS_WEBAPP_URL = '';
+// ลิงก์ Apps Script Web App URL ที่ฝังไว้ในโค้ดโดยตรง
+const DEFAULT_GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbw1BNxTbZwXfMHiNLgstqi-53N_evg_Ow7WO_WF5jAVyJ1b-jUiNwLA1zMfi3fqFhU7/exec';
 
 const STORAGE_KEYS = {
   LANG: 'fa_safety_lang',
   GAS_URL: 'fa_safety_gas_url',
-  QUESTIONS: 'fa_safety_questions_v2',
-  SURVEYS: 'fa_safety_surveys_v2'
+  QUESTIONS: 'fa_safety_questions_v3',
+  SURVEYS: 'fa_safety_surveys_v3'
 };
 
 const PRODUCTION_LINES = [
@@ -66,74 +65,28 @@ let lineChartInstance = null;
 let empChartInstance = null;
 
 /**
- * สร้างข้อมูลตัวอย่างเริ่มต้นสำหรับแสดงผลกราฟทันทีหากชีตยังว่าง
- */
-function generateInitialDemoSurveys() {
-  const today = new Date();
-  const fmtDate = (daysAgo) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - daysAgo);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const sampleRecords = [
-    { daysAgo: 5, empId: 'FA-1001', name: 'สมชาย ใจดี (Somchai)', line: 'FA-Line 1', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 2, Q6: 2 }, note: 'เข้าประชุมและตอบคำถามเรื่องจุดเสี่ยงหน้างานได้ชัดเจน' },
-    { daysAgo: 5, empId: 'FA-1018', name: 'อาหลิว (Liu Wei)', line: 'FA-Line 2', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 1, Q5: 2, Q6: 2 }, note: 'เข้าใจขั้นตอนแจ้งเหตุเมื่อเครื่องจักรผิดปกติ' },
-    { daysAgo: 4, empId: 'FA-2004', name: 'มินอ่อง (Min Aung)', line: 'FA-Line 1', auditor: 'หัวหน้าสมศักดิ์', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 1, Q6: 2 }, note: 'รับทราบการบรีฟก่อนเริ่มกะดีมาก' },
-    { daysAgo: 4, empId: 'FA-2019', name: 'กานดา รักงาน', line: 'FA-Line 3', auditor: 'หัวหน้าสมศักดิ์', scores: { Q1: 1, Q2: 1, Q3: 1, Q4: 1, Q5: 2, Q6: 2 }, note: 'ทบทวนเคสอุบัติเหตุเพิ่มเติม' },
-    { daysAgo: 4, empId: 'FA-3009', name: 'จ่อซาน (Kyaw San)', line: 'FA-Line 4', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 2, Q6: 2 }, note: 'ตอบครบถ้วน 10/10' },
-    { daysAgo: 3, empId: 'FA-1042', name: 'หวังหย่ง (Wang Yong)', line: 'FA-Line 2', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 2, Q6: 1 }, note: 'เข้าใจเนื้อหาการประชุมช่วงเช้า' },
-    { daysAgo: 3, empId: 'FA-4012', name: 'ซูซู (Su Su)', line: 'Sub-Assy Line', auditor: 'หัวหน้าสมศักดิ์', scores: { Q1: 1, Q2: 1, Q3: 1, Q4: 1, Q5: 1, Q6: 2 }, note: 'เน้นย้ำจุดเสี่ยงในพื้นที่ประกอบย่อย' },
-    { daysAgo: 2, empId: 'FA-1055', name: 'ณัฐพล คนขยัน', line: 'FA-Line 1', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 2, Q6: 2 }, note: 'ความตระหนักรู้หน้างานดีเยี่ยม' },
-    { daysAgo: 2, empId: 'FA-3021', name: 'เฉินเจีย (Chen Jia)', line: 'FA-Line 3', auditor: 'หัวหน้าสมศักดิ์', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 2, Q6: 1 }, note: 'ตอบเรื่องความปลอดภัยประจำวันได้ชัดเจน' },
-    { daysAgo: 2, empId: 'FA-5008', name: 'หน่ายวิน (Naing Win)', line: 'Packing & QA', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 1, Q5: 2, Q6: 2 }, note: 'รู้วิธีหยุดเครื่องและแจ้งหัวหน้างานทันที' },
-    { daysAgo: 1, empId: 'FA-2033', name: 'ปิยะพร ศรีสุข', line: 'FA-Line 2', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 2, Q6: 2 }, note: 'เป็นแบบอย่างที่ดีของไลน์ 2' },
-    { daysAgo: 1, empId: 'FA-4025', name: 'อ่องเมียต (Aung Myat)', line: 'FA-Line 4', auditor: 'หัวหน้าสมศักดิ์', scores: { Q1: 1, Q2: 1, Q3: 1, Q4: 2, Q5: 1, Q6: 2 }, note: 'ย้ำเตือนการตรวจเช็คการ์ดเครื่องจักร' },
-    { daysAgo: 0, empId: 'FA-1088', name: 'ธนากร ปลอดภัย', line: 'FA-Line 1', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 2, Q6: 2 }, note: 'สมบูรณ์แบบ 10/10' },
-    { daysAgo: 0, empId: 'FA-3044', name: 'หลี่หมิง (Li Ming)', line: 'FA-Line 3', auditor: 'จป.วิชัย', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 1, Q6: 2 }, note: 'ตอบคำถามได้ดีมาก' },
-    { daysAgo: 0, empId: 'FA-5019', name: 'เมย์ทู (May Thu)', line: 'Packing & QA', auditor: 'หัวหน้าสมศักดิ์', scores: { Q1: 1, Q2: 1, Q3: 2, Q4: 2, Q5: 2, Q6: 2 }, note: 'เข้าใจขั้นตอนความปลอดภัยครบถ้วน' }
-  ];
-
-  return sampleRecords.map((item, idx) => {
-    const dateStr = fmtDate(item.daysAgo);
-    const total = Object.values(item.scores).reduce((a, b) => a + b, 0);
-    const max = 10;
-    const pct = Math.round((total / max) * 100);
-    return {
-      survey_id: `SV-DEMO-${100 + idx}`,
-      date: dateStr,
-      timestamp: `${dateStr}T09:${String(10 + idx).padStart(2, '0')}:00.000Z`,
-      employee_id: item.empId,
-      employee_name: item.name,
-      line: item.line,
-      auditor: item.auditor,
-      total_score: total,
-      max_score: max,
-      percentage: pct,
-      answers: item.scores,
-      note: item.note
-    };
-  });
-}
-
-/**
  * เริ่มต้นการทำงานเมื่อเปิดหน้าเว็บ
  */
 document.addEventListener('DOMContentLoaded', async () => {
+  // ล้างแคชข้อมูลจำลองเดิมออกทั้งหมด และบังคับใช้ DEFAULT_GAS_WEBAPP_URL เสมอหากยังไม่มีลิงก์ที่ถูกต้อง
+  localStorage.removeItem('fa_safety_surveys_v1');
+  localStorage.removeItem('fa_safety_surveys_v2');
+  if (!state.gasUrl || !state.gasUrl.startsWith('https://script.google.com/')) {
+    state.gasUrl = DEFAULT_GAS_WEBAPP_URL;
+    localStorage.setItem(STORAGE_KEYS.GAS_URL, DEFAULT_GAS_WEBAPP_URL);
+  }
+
   loadLocalData();
   initFormDefaults();
   applyTranslations();
   renderAll();
 
-  // พยายามซิงค์ข้อมูลจาก Google Sheets อัตโนมัติเมื่อเปิดหน้าเว็บ
+  // ซิงค์ข้อมูลจริงจาก Google Sheets อัตโนมัติเมื่อเปิดหน้าเว็บ
   await syncFromGoogleSheets(true);
 });
 
 /**
- * โหลดข้อมูลจาก LocalStorage หรือใช้ข้อมูลตั้งต้น
+ * โหลดข้อมูลจาก LocalStorage (เฉพาะข้อมูลจริงจากชีต ไม่ใช้ข้อมูลจำลอง)
  */
 function loadLocalData() {
   try {
@@ -149,15 +102,17 @@ function loadLocalData() {
     const savedS = localStorage.getItem(STORAGE_KEYS.SURVEYS);
     if (savedS) {
       const parsedS = JSON.parse(savedS);
-      state.surveys = Array.isArray(parsedS) && parsedS.length > 0 ? parsedS : generateInitialDemoSurveys();
+      state.surveys = Array.isArray(parsedS)
+        ? parsedS.filter(s => !String(s.survey_id || '').startsWith('SV-DEMO-'))
+        : [];
     } else {
-      state.surveys = generateInitialDemoSurveys();
+      state.surveys = [];
       localStorage.setItem(STORAGE_KEYS.SURVEYS, JSON.stringify(state.surveys));
     }
   } catch (e) {
     console.warn('Error loading localStorage data:', e);
     state.questions = [...DEFAULT_QUESTIONS];
-    state.surveys = generateInitialDemoSurveys();
+    state.surveys = [];
   }
 }
 
@@ -306,7 +261,7 @@ function renderAll() {
 
 /**
  * ============================================================================
- * GOOGLE SHEETS SYNC (Apps Script Web App + Public gviz JSON Fallback)
+ * GOOGLE SHEETS SYNC (google.script.run + Apps Script Web App + JSONP gviz)
  * ============================================================================
  */
 async function syncFromGoogleSheets(silent = false) {
@@ -316,14 +271,57 @@ async function syncFromGoogleSheets(silent = false) {
   let syncedQuestions = null;
   let syncedSurveys = null;
 
-  // 1. หากผู้ใช้ตั้งค่า Apps Script Web App URL ไว้ ให้ดึงผ่าน Apps Script ก่อน
-  if (state.gasUrl && state.gasUrl.startsWith('https://script.google.com/')) {
+  // 0. ถ้ารันอยู่ในสภาพแวดล้อม Google Apps Script HtmlService โดยตรง ใช้ google.script.run ได้ทันที
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
     try {
-      const res = await fetch(`${state.gasUrl}?action=getAll&t=${Date.now()}`, {
-        method: 'GET',
-        redirect: 'follow'
+      const data = await new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .processActionPayload({ action: 'getAll' });
       });
-      const data = await res.json();
+      if (data && data.status === 'ok') {
+        if (Array.isArray(data.questions) && data.questions.length > 0) syncedQuestions = data.questions;
+        if (Array.isArray(data.surveys)) syncedSurveys = data.surveys;
+        state.isConnectedToCloud = true;
+      }
+    } catch (err) {
+      console.warn('google.script.run warning:', err);
+    }
+  }
+
+  // 1. หากผู้ใช้ตั้งค่า Apps Script Web App URL ไว้ ให้ดึงผ่าน Apps Script (รองรับทั้ง JSONP และ fetch)
+  if (!syncedQuestions && state.gasUrl && state.gasUrl.startsWith('https://script.google.com/')) {
+    try {
+      const data = await new Promise((resolve, reject) => {
+        const cbName = `__gas_sync_cb_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const script = document.createElement('script');
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error('GAS sync JSONP timeout'));
+        }, 8000);
+
+        function cleanup() {
+          clearTimeout(timer);
+          delete window[cbName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+        }
+
+        window[cbName] = (res) => {
+          cleanup();
+          resolve(res);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('GAS sync JSONP error'));
+        };
+
+        const sep = state.gasUrl.includes('?') ? '&' : '?';
+        script.src = `${state.gasUrl}${sep}action=getAll&callback=${cbName}&t=${Date.now()}`;
+        document.head.appendChild(script);
+      });
+
       if (data && data.status === 'ok') {
         if (Array.isArray(data.questions) && data.questions.length > 0) {
           syncedQuestions = data.questions;
@@ -334,11 +332,28 @@ async function syncFromGoogleSheets(silent = false) {
         state.isConnectedToCloud = true;
       }
     } catch (err) {
-      console.warn('GAS Web App fetch warning:', err);
+      try {
+        const res = await fetch(`${state.gasUrl}?action=getAll&t=${Date.now()}`, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        const data = await res.json();
+        if (data && data.status === 'ok') {
+          if (Array.isArray(data.questions) && data.questions.length > 0) {
+            syncedQuestions = data.questions;
+          }
+          if (Array.isArray(data.surveys)) {
+            syncedSurveys = data.surveys;
+          }
+          state.isConnectedToCloud = true;
+        }
+      } catch (err2) {
+        console.warn('GAS Web App fetch warning:', err2);
+      }
     }
   }
 
-  // 2. หากยังไม่ได้ตั้งค่า GAS URL หรือดึงไม่สำเร็จ ให้ลองดึงข้อมูลโดยตรงจากชีต "Question" และ "Survey list" ผ่าน Google Visualization endpoint
+  // 2. หากยังไม่ได้ตั้งค่า GAS URL หรือดึงไม่สำเร็จ ให้ดึงข้อมูลโดยตรงจากชีต "Question" และ "Survey list" (รองรับทั้ง fetch และ JSONP สำหรับ file://)
   if (!syncedQuestions) {
     try {
       const qFromSheet = await fetchSheetViaGviz('Question');
@@ -351,10 +366,10 @@ async function syncFromGoogleSheets(silent = false) {
     }
   }
 
-  if (!syncedSurveys) {
+  if (syncedSurveys === null) {
     try {
       const sFromSheet = await fetchSheetViaGviz('Survey list');
-      if (sFromSheet && sFromSheet.length > 0) {
+      if (Array.isArray(sFromSheet)) {
         syncedSurveys = sFromSheet;
         state.isConnectedToCloud = true;
       }
@@ -366,7 +381,7 @@ async function syncFromGoogleSheets(silent = false) {
   if (syncedQuestions && syncedQuestions.length > 0) {
     state.questions = syncedQuestions;
   }
-  if (syncedSurveys && syncedSurveys.length > 0) {
+  if (Array.isArray(syncedSurveys)) {
     state.surveys = syncedSurveys;
   }
 
@@ -387,18 +402,53 @@ async function syncFromGoogleSheets(silent = false) {
 }
 
 /**
- * อ่านข้อมูลโดยตรงจาก Google Sheets ผ่าน gviz endpoint (กรณีเปิดสิทธิ์แชร์ลิงก์ไว้)
+ * อ่านข้อมูลโดยตรงจาก Google Sheets ผ่าน gviz endpoint (รองรับ JSONP script tag จึงทำงานได้แม้เปิดจาก file://)
  */
 async function fetchSheetViaGviz(sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
-  const response = await fetch(url);
-  if (!response.ok) return null;
-  const text = await response.text();
-  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);?/);
-  if (!match || !match[1]) return null;
+  let json = null;
 
-  const json = JSON.parse(match[1]);
-  if (!json.table || !json.table.rows || json.table.rows.length === 0) return null;
+  // ลองใช้ JSONP ผ่าน <script> tag ก่อนเพื่อให้ทำงานได้ทั้งบน file:// และ GitHub Pages โดยไม่ติด CORS
+  try {
+    json = await new Promise((resolve, reject) => {
+      const cbName = `__gviz_cb_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+      const script = document.createElement('script');
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('gviz timeout'));
+      }, 6000);
+
+      function cleanup() {
+        clearTimeout(timer);
+        delete window[cbName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[cbName] = (response) => {
+        cleanup();
+        resolve(response);
+      };
+
+      script.onerror = () => {
+        cleanup();
+        reject(new Error('gviz script error'));
+      };
+
+      script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=responseHandler:${cbName}`;
+      document.head.appendChild(script);
+    });
+  } catch (err) {
+    // Fallback ไปใช้ fetch ปกติ
+    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const text = await response.text();
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);?/);
+    if (match && match[1]) {
+      json = JSON.parse(match[1]);
+    }
+  }
+
+  if (!json || !json.table || !json.table.rows || json.table.rows.length === 0) return null;
 
   const rows = json.table.rows;
   if (sheetName === 'Question') {
@@ -489,37 +539,70 @@ async function fetchSheetViaGviz(sheetName) {
         note: note
       });
     });
-    return parsed.length > 0 ? parsed : null;
+    return parsed;
   }
 
   return null;
 }
 
 /**
- * ส่งคำสั่ง POST ไปยัง Google Apps Script Web App
+ * ส่งคำสั่งบันทึกข้อมูลไปยัง Google Sheets ผ่าน POST (doPost)
  */
 async function postToGoogleSheets(payload) {
-  if (!state.gasUrl || !state.gasUrl.startsWith('https://script.google.com/')) {
-    return { status: 'local_only' };
+  // 1. ถ้ารันบน Google Apps Script โดยตรง
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    try {
+      state.isSyncing = true;
+      updateConnectionBadge();
+      const res = await new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .processActionPayload(payload);
+      });
+      state.isConnectedToCloud = true;
+      state.isSyncing = false;
+      updateConnectionBadge();
+      return res;
+    } catch (err) {
+      state.isSyncing = false;
+      updateConnectionBadge();
+      return { status: 'error', message: err.toString() };
+    }
   }
-  try {
-    state.isSyncing = true;
-    updateConnectionBadge();
 
-    // ใช้ text/plain เพื่อหลีกเลี่ยงปัญหา CORS preflight ของ Google Apps Script
-    const res = await fetch(state.gasUrl, {
+  // 2. ใช้ลิงก์ GAS Web App URL ที่ฝังไว้ในโค้ด
+  const targetUrl = (state.gasUrl && state.gasUrl.startsWith('https://script.google.com/'))
+    ? state.gasUrl
+    : DEFAULT_GAS_WEBAPP_URL;
+
+  state.isSyncing = true;
+  updateConnectionBadge();
+
+  try {
+    const res = await fetch(targetUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload),
       redirect: 'follow'
     });
     const data = await res.json();
+    if (data && data.status === 'ok') {
+      if (Array.isArray(data.questions) && data.questions.length > 0) {
+        state.questions = data.questions;
+      }
+      if (Array.isArray(data.surveys)) {
+        state.surveys = data.surveys;
+      }
+      saveLocalData();
+      renderAll();
+    }
     state.isConnectedToCloud = true;
     state.isSyncing = false;
     updateConnectionBadge();
     return data;
   } catch (err) {
-    console.warn('POST to GAS failed, saved locally:', err);
+    console.warn('POST to GAS warning:', err);
     state.isSyncing = false;
     updateConnectionBadge();
     return { status: 'error', message: err.toString() };
@@ -1445,13 +1528,333 @@ function exportSurveysToCSV() {
 
 /**
  * ============================================================================
+ * EMBEDDED GOOGLE APPS SCRIPT CODE (ฝังโค้ด Apps Script ไว้ในระบบโดยตรง)
+ * ============================================================================
+ */
+const EMBEDDED_APPS_SCRIPT_CODE = `/**
+ * Final Assembly - Safety Survey | Google Apps Script Backend (Code.gs)
+ * Spreadsheet ID: 1bM68aArN9WAbwrvFrKC1hpAy335SSgzZPZBtDp-Znpc
+ */
+const SPREADSHEET_ID = '1bM68aArN9WAbwrvFrKC1hpAy335SSgzZPZBtDp-Znpc';
+const SHEET_QUESTIONS = 'Question';
+const SHEET_SURVEYS = 'Survey list';
+
+function getSpreadsheet() {
+  try {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  } catch (e) {
+    return SpreadsheetApp.getActiveSpreadsheet();
+  }
+}
+
+function setupSheets() {
+  const ss = getSpreadsheet();
+  let qSheet = ss.getSheetByName(SHEET_QUESTIONS);
+  if (!qSheet) qSheet = ss.insertSheet(SHEET_QUESTIONS);
+
+  let sSheet = ss.getSheetByName(SHEET_SURVEYS);
+  if (!sSheet) {
+    sSheet = ss.insertSheet(SHEET_SURVEYS);
+    sSheet.getRange('B2:H2').setValues([[
+      'Date', 'Employee ID', 'Name', 'Line', 'Score', 'Note', 'Details_JSON'
+    ]]).setFontWeight('bold');
+  }
+  return { status: 'ok', message: 'Sheets ready' };
+}
+
+function doGet(e) {
+  try {
+    setupSheets();
+    const callback = (e && e.parameter && e.parameter.callback) ? e.parameter.callback : null;
+
+    let resultPayload;
+    if (e && e.parameter && e.parameter.payload) {
+      const parsedPayload = JSON.parse(e.parameter.payload);
+      resultPayload = processActionPayload(parsedPayload);
+    } else {
+      const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'getAll';
+      if (action === 'getQuestions') {
+        resultPayload = { status: 'ok', questions: getQuestionsData() };
+      } else if (action === 'getSurveys') {
+        resultPayload = { status: 'ok', surveys: getSurveysData() };
+      } else {
+        resultPayload = {
+          status: 'ok',
+          questions: getQuestionsData(),
+          surveys: getSurveysData(),
+          serverTime: new Date().toISOString()
+        };
+      }
+    }
+
+    if (callback) {
+      return ContentService
+        .createTextOutput(callback + '(' + JSON.stringify(resultPayload) + ');')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    return jsonResponse(resultPayload);
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.toString() });
+  }
+}
+
+function doPost(e) {
+  try {
+    setupSheets();
+    let payload = {};
+    if (e.postData && e.postData.contents) {
+      payload = JSON.parse(e.postData.contents);
+    } else if (e.parameter) {
+      payload = e.parameter;
+    }
+    return jsonResponse(processActionPayload(payload));
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.toString() });
+  }
+}
+
+function processActionPayload(payload) {
+  setupSheets();
+  const action = payload.action;
+  if (action === 'getAll') {
+    return { status: 'ok', questions: getQuestionsData(), surveys: getSurveysData() };
+  }
+  if (action === 'saveQuestion') {
+    saveQuestionToSheet(payload.question, payload.allQuestions);
+    return { status: 'ok', questions: getQuestionsData() };
+  }
+  if (action === 'deleteQuestion') {
+    if (Array.isArray(payload.allQuestions)) writeQuestionsTable(payload.allQuestions);
+    return { status: 'ok', questions: getQuestionsData() };
+  }
+  if (action === 'saveAllQuestions') {
+    writeQuestionsTable(payload.questions || []);
+    return { status: 'ok', questions: getQuestionsData() };
+  }
+  if (action === 'submitSurvey') {
+    const saved = appendSurveyRow(payload.survey);
+    return { status: 'ok', survey: saved, surveys: getSurveysData() };
+  }
+  return { status: 'error', message: 'Unknown action: ' + action };
+}
+
+function getQuestionsData() {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_QUESTIONS);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return [];
+
+  const maxCol = Math.max(5, sheet.getLastColumn());
+  const values = sheet.getRange(2, 2, lastRow - 1, maxCol - 1).getValues();
+
+  const questions = [];
+  let currentCategoryTh = 'หมวดทั่วไป';
+  let currentCategoryZh = '常规安全';
+  let currentCategoryMy = 'အထွေထွေ လုံခြုံရေး';
+  let qCounter = 1;
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const colB = String(row[0] || '').trim();
+    const colC = row[1];
+    const colD = String(row[2] || '').trim();
+    const colE = String(row[3] || '').trim();
+
+    if (!colB) continue;
+    if (colB.indexOf('หมวดที่') === 0 || colB.toLowerCase().indexOf('category') === 0) {
+      currentCategoryTh = colB;
+      currentCategoryZh = colD || colB;
+      currentCategoryMy = colE || colB;
+      continue;
+    }
+
+    questions.push({
+      id: 'Q' + qCounter,
+      row_index: i + 2,
+      category: currentCategoryTh,
+      category_zh: currentCategoryZh,
+      category_my: currentCategoryMy,
+      text_th: colB,
+      text_zh: colD || colB,
+      text_my: colE || colB,
+      max_score: Number(colC) || 1,
+      active: true
+    });
+    qCounter++;
+  }
+  return questions;
+}
+
+function saveQuestionToSheet(question, allQuestions) {
+  if (Array.isArray(allQuestions) && allQuestions.length > 0) {
+    writeQuestionsTable(allQuestions);
+    return;
+  }
+  const currentList = getQuestionsData();
+  const idx = currentList.findIndex(q => q.id === question.id);
+  if (idx !== -1) currentList[idx] = question;
+  else currentList.push(question);
+  writeQuestionsTable(currentList);
+}
+
+function writeQuestionsTable(questions) {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_QUESTIONS);
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) sheet.getRange(2, 2, Math.max(12, lastRow), 4).clearContent();
+
+  const rows = [['Category', 'Score', 'Question_ZH (中文)', 'Question_MY (မြန်မာ)']];
+  const grouped = {};
+  const categoryOrder = [];
+  questions.forEach(q => {
+    if (q.active === false) return;
+    const cat = q.category || 'หมวดทั่วไป';
+    if (!grouped[cat]) {
+      grouped[cat] = { cat_th: cat, cat_zh: q.category_zh || cat, cat_my: q.category_my || cat, items: [], sumScore: 0 };
+      categoryOrder.push(cat);
+    }
+    const sc = Number(q.max_score) || 1;
+    grouped[cat].items.push(q);
+    grouped[cat].sumScore += sc;
+  });
+
+  let grandTotal = 0;
+  categoryOrder.forEach(catKey => {
+    const group = grouped[catKey];
+    grandTotal += group.sumScore;
+    rows.push([group.cat_th, group.sumScore, group.cat_zh, group.cat_my]);
+    group.items.forEach(q => {
+      rows.push([q.text_th || '', Number(q.max_score) || 1, q.text_zh || q.text_th || '', q.text_my || q.text_th || '']);
+    });
+  });
+
+  rows.push(['', grandTotal, '', '']);
+  sheet.getRange(2, 2, rows.length, 4).setValues(rows);
+}
+
+function getSurveysData() {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_SURVEYS);
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 2) return [];
+
+  const maxCol = Math.max(8, sheet.getLastColumn());
+  const values = sheet.getRange(3, 2, lastRow - 2, maxCol - 1).getValues();
+  const tz = Session.getScriptTimeZone() || 'Asia/Bangkok';
+
+  const surveys = [];
+  for (let i = 0; i < values.length; i++) {
+    const r = values[i];
+    const rawDate = r[0];
+    const empId = String(r[1] || '').trim();
+    const empName = String(r[2] || '').trim();
+    const line = String(r[3] || '').trim();
+    const scoreVal = r[4];
+    const note = String(r[5] || '').trim();
+    const detailsJson = String(r[6] || '').trim();
+
+    if (!empId && !empName && (scoreVal === '' || scoreVal === null)) continue;
+
+    let dateStr = '';
+    if (rawDate instanceof Date) {
+      dateStr = Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd');
+    } else if (rawDate) {
+      const str = String(rawDate).trim();
+      if (/^\\d{1,2}\\/\\d{1,2}\\/\\d{4}$/.test(str)) {
+        const parts = str.split('/');
+        dateStr = parts[2] + '-' + parts[0].padStart(2, '0') + '-' + parts[1].padStart(2, '0');
+      } else {
+        dateStr = str.slice(0, 10);
+      }
+    }
+
+    let extra = {};
+    try { extra = detailsJson ? JSON.parse(detailsJson) : {}; } catch (e) { extra = {}; }
+
+    const totalScore = Number(scoreVal) || 0;
+    const maxScore = Number(extra.max_score) || 10;
+    const pct = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+
+    surveys.push({
+      survey_id: extra.survey_id || ('SV-ROW-' + (i + 3)),
+      date: dateStr,
+      timestamp: extra.timestamp || dateStr,
+      employee_id: empId || '-',
+      employee_name: empName || empId || '-',
+      line: line || 'FA-Line 1',
+      auditor: extra.auditor || '',
+      total_score: totalScore,
+      max_score: maxScore,
+      percentage: pct,
+      answers: extra.answers || {},
+      note: note
+    });
+  }
+  return surveys;
+}
+
+function appendSurveyRow(s) {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_SURVEYS);
+  const now = new Date();
+  const tz = Session.getScriptTimeZone() || 'Asia/Bangkok';
+  const dateStr = s.date || Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const surveyId = s.survey_id || ('SV-' + now.getTime());
+
+  const detailsObj = {
+    survey_id: surveyId,
+    timestamp: now.toISOString(),
+    auditor: s.auditor || '',
+    max_score: Number(s.max_score) || 10,
+    percentage: Number(s.percentage) || 0,
+    answers: s.answers || {}
+  };
+
+  const lastRow = Math.max(2, sheet.getLastRow());
+  let targetRow = lastRow + 1;
+  if (lastRow >= 3) {
+    const checkRange = sheet.getRange(3, 2, lastRow - 2, 5).getValues();
+    for (let i = 0; i < checkRange.length; i++) {
+      const empIdCell = String(checkRange[i][1] || '').trim();
+      const nameCell = String(checkRange[i][2] || '').trim();
+      const scoreCell = String(checkRange[i][4] || '').trim();
+      if (!empIdCell && !nameCell && !scoreCell) {
+        targetRow = i + 3;
+        break;
+      }
+    }
+  }
+
+  sheet.getRange(targetRow, 2, 1, 7).setValues([[
+    dateStr,
+    s.employee_id || '',
+    s.employee_name || '',
+    s.line || '',
+    Number(s.total_score) || 0,
+    s.note || '',
+    JSON.stringify(detailsObj)
+  ]]);
+
+  return { ...s, survey_id: surveyId, date: dateStr };
+}
+
+function jsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+/**
+ * ============================================================================
  * SETTINGS & GOOGLE APPS SCRIPT CONNECTION MODAL
  * ============================================================================
  */
 function openSettingsModal() {
   const modal = document.getElementById('settings-modal');
   const input = document.getElementById('input-gas-url');
+  const codeBlock = document.getElementById('embedded-gas-code');
   if (input) input.value = state.gasUrl;
+  if (codeBlock) codeBlock.textContent = EMBEDDED_APPS_SCRIPT_CODE;
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -1471,21 +1874,21 @@ async function saveSettingsModal() {
 }
 
 /**
- * คัดลอกโค้ด Apps Script จากหน้าเว็บเพื่อนำไปวางใน Google Sheets ได้ทันที
+ * คัดลอกโค้ด Apps Script ที่ฝังอยู่ในระบบได้ทันที (ไม่ต้องโหลดไฟล์แยก)
  */
 async function copyAppsScriptCode() {
   const t = I18N[state.lang] || I18N.th;
   try {
-    const res = await fetch('google-apps-script/Code.gs');
-    const codeText = await res.text();
-    await navigator.clipboard.writeText(codeText);
+    await navigator.clipboard.writeText(EMBEDDED_APPS_SCRIPT_CODE);
     showToast(t.msg_copied_gas, 'success');
   } catch (e) {
-    const codeBlock = document.getElementById('embedded-gas-code');
-    if (codeBlock) {
-      await navigator.clipboard.writeText(codeBlock.textContent);
-      showToast(t.msg_copied_gas, 'success');
-    }
+    const textarea = document.createElement('textarea');
+    textarea.value = EMBEDDED_APPS_SCRIPT_CODE;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast(t.msg_copied_gas, 'success');
   }
 }
 
