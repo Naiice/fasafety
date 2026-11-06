@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>Final Assembly - Safety Survey | ระบบสำรวจความปลอดภัย</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="min-h-screen flex flex-col pb-safe" data-lang="th">
+
+  <!-- ==================================================================== -->
+  <!-- TOP HEADER (Responsive Mobile & Notebook)                            -->
+  <!-- ==================================================================== -->
+  <header class="sticky top-0 z-30 bg-slate-900 text-white shadow-md border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand Logo & Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300 shrink-0">
+          <i data-lucide="shield-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight leading-tight" data-i18n="app_title">
+            Final Assembly - Safety Survey
+          </h1>
+          <p class="text-[11px] sm:text-xs text-slate-400 hidden sm:block" data-i18n="app_subtitle">
+            ระบบสำรวจและประเมินความปลอดภัยของพนักงานในสายการผลิต
+          </p>
+        </div>
+      </div>
+
+      <!-- Right Controls: Language Switcher (TH / ZH / MY) + Google Sheets Status -->
+      <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+        <!-- Connection Status Pill -->
+        <button
+          type="button"
+          onclick="openSettingsModal()"
+          class="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 transition"
+        >
+          <span id="conn-status-dot" class="w-2.5 h-2.5 rounded-full bg-teal-400"></span>
+          <span id="conn-status-text" data-i18n="status_demo">โหมดพร้อมใช้งาน</span>
+          <i data-lucide="settings" class="w-3.5 h-3.5 text-slate-400"></i>
+        </button>
+
+        <!-- 3-Language Switcher: ไทย | 中文 | မြန်မာ -->
+        <div class="inline-flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
+          <button
+            type="button"
+            data-lang="th"
+            onclick="setLanguage('th')"
+            class="lang-btn active px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-200 hover:text-white transition"
+          >
+            🇹🇭 ไทย
+          </button>
+          <button
+            type="button"
+            data-lang="zh"
+            onclick="setLanguage('zh')"
+            class="lang-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-200 hover:text-white transition"
+          >
+            🇨🇳 中文
+          </button>
+          <button
+            type="button"
+            data-lang="my"
+            onclick="setLanguage('my')"
+            class="lang-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-200 hover:text-white transition"
+          >
+            🇲🇲 မြန်မာ
+          </button>
+        </div>
+
+        <!-- Refresh / Sync Button -->
+        <button
+          type="button"
+          onclick="syncFromGoogleSheets(false)"
+          title="Sync with Google Sheets"
+          class="p-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white transition shadow-sm"
+        >
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Desktop Navigation Tabs (Notebook View) -->
+    <div class="hidden sm:block bg-white text-slate-700 border-b border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+        <nav class="flex items-center space-x-1">
+          <button
+            type="button"
+            data-tab="dashboard"
+            onclick="switchTab('dashboard')"
+            class="nav-tab active px-4 py-3 text-sm font-semibold border-b-2 border-transparent flex items-center gap-2 transition"
+          >
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            <span data-i18n="nav_dashboard">แดชบอร์ดสรุปผล</span>
+          </button>
+          <button
+            type="button"
+            data-tab="survey"
+            onclick="switchTab('survey')"
+            class="nav-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent flex items-center gap-2 transition"
+          >
+            <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+            <span data-i18n="nav_survey">ทำแบบสำรวจ</span>
+          </button>
+          <button
+            type="button"
+            data-tab="questions"
+            onclick="switchTab('questions')"
+            class="nav-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent flex items-center gap-2 transition"
+          >
+            <i data-lucide="list-checks" class="w-4 h-4"></i>
+            <span data-i18n="nav_questions">ตั้งค่าคำถาม (Question)</span>
+          </button>
+          <button
+            type="button"
+            data-tab="records"
+            onclick="switchTab('records')"
+            class="nav-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent flex items-center gap-2 transition"
+          >
+            <i data-lucide="table-2" class="w-4 h-4"></i>
+            <span data-i18n="nav_records">รายการสำรวจ (Survey list)</span>
+          </button>
+        </nav>
+
+        <div class="flex items-center gap-2 py-1.5">
+          <a
+            href="https://docs.google.com/spreadsheets/d/1bM68aArN9WAbwrvFrKC1hpAy335SSgzZPZBtDp-Znpc/edit?gid=0#gid=0"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition"
+          >
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+            <span data-i18n="btn_open_sheet">เปิด Google Sheets</span>
+          </a>
+          <button
+            type="button"
+            onclick="openSettingsModal()"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold transition"
+          >
+            <i data-lucide="plug" class="w-3.5 h-3.5"></i>
+            <span data-i18n="nav_settings">เชื่อมต่อ Google Sheets</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================================================================== -->
+  <!-- MAIN CONTENT AREA                                                    -->
+  <!-- ==================================================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-6">
+
+    <!-- ================================================================== -->
+    <!-- TAB 1: DASHBOARD (กราฟจำนวนรายวัน + คะแนนรายไลน์ + คะแนนรายคน)     -->
+    <!-- ================================================================== -->
+    <section id="tab-dashboard" class="tab-section space-y-6">
+
+      <!-- KPI Summary Cards (4 Cards) -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500" data-i18n="kpi_total_surveys">จำนวนที่สำรวจทั้งหมด</p>
+            <p id="kpi-total-val" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</p>
+          </div>
+          <div class="w-11 h-11 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500" data-i18n="kpi_today_surveys">สำรวจวันนี้ (คน)</p>
+            <p id="kpi-today-val" class="text-2xl sm:text-3xl font-extrabold text-teal-700 mt-1">0</p>
+          </div>
+          <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <i data-lucide="calendar-check-2" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500" data-i18n="kpi_avg_score">คะแนนความปลอดภัยเฉลี่ย</p>
+            <p id="kpi-avg-val" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">0%</p>
+          </div>
+          <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <i data-lucide="award" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500" data-i18n="kpi_pass_rate">อัตราผ่านเกณฑ์ (≥80%)</p>
+            <p id="kpi-pass-val" class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">0%</p>
+          </div>
+          <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="glass-card p-4 rounded-2xl shadow-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="field_line">ไลน์การผลิต</label>
+            <select
+              id="filter-line"
+              onchange="applyDashboardFilters()"
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="ALL">ทุกไลน์การผลิต (All Lines)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="filter_date_from">ตั้งแต่วันที่</label>
+            <input
+              type="date"
+              id="filter-date-from"
+              onchange="applyDashboardFilters()"
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="filter_date_to">ถึงวันที่</label>
+            <input
+              type="date"
+              id="filter-date-to"
+              onchange="applyDashboardFilters()"
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="col_emp_name">ค้นหาพนักงาน</label>
+            <input
+              type="text"
+              id="filter-search"
+              oninput="applyDashboardFilters()"
+              data-i18n-placeholder="filter_search_emp"
+              placeholder="ค้นหารหัส / ชื่อพนักงาน..."
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div class="flex gap-2">
+            <button
+              type="button"
+              onclick="resetDashboardFilters()"
+              class="w-full px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition flex items-center justify-center gap-1.5 h-[38px]"
+            >
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              <span data-i18n="btn_reset_filter">ล้างตัวกรอง</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 1: Daily Survey Count Chart + Score by Line Chart -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Chart 1: Daily Survey Count -->
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex flex-col">
+          <div class="mb-3">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="calendar-days" class="w-5 h-5 text-teal-600"></i>
+              <span data-i18n="chart_daily_title">จำนวนพนักงานที่ถูก Survey ในแต่ละวัน</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5" data-i18n="chart_daily_sub">
+              สรุปจำนวนการสุ่มตรวจความปลอดภัยรายวัน และคะแนนเฉลี่ยรายวัน
+            </p>
+          </div>
+          <div class="relative h-64 sm:h-72 w-full">
+            <canvas id="chart-daily"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Score by Line -->
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex flex-col">
+          <div class="mb-3">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="factory" class="w-5 h-5 text-blue-600"></i>
+              <span data-i18n="chart_line_title">คะแนนความปลอดภัยแยกตามไลน์ผลิต (Score by Line)</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5" data-i18n="chart_line_sub">
+              เปรียบเทียบคะแนนเฉลี่ย (%) และจำนวนคนที่ตรวจในแต่ละไลน์
+            </p>
+          </div>
+          <div class="relative h-64 sm:h-72 w-full">
+            <canvas id="chart-line"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Row 2: Individual Employee Score by Line -->
+      <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="user-check" class="w-5 h-5 text-purple-600"></i>
+              <span data-i18n="chart_emp_title">คะแนนของพนักงานแต่ละคน และแยกตามไลน์</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5" data-i18n="chart_emp_sub">
+              แสดงคะแนนรายบุคคลเทียบกับเกณฑ์มาตรฐาน 80%
+            </p>
+          </div>
+          <!-- Line Quick Filter Pills -->
+          <div id="emp-chart-line-pills" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+
+        <div class="relative h-72 sm:h-80 w-full">
+          <canvas id="chart-employee"></canvas>
+        </div>
+      </div>
+
+      <!-- Recent Survey Summary Table on Dashboard -->
+      <div class="glass-card rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-900" data-i18n="table_title">
+              ตารางข้อมูลผลสำรวจรายบุคคล (ชีต "Survey list")
+            </h3>
+            <p class="text-xs text-slate-500" data-i18n="table_subtitle">
+              แสดงรายการสำรวจทั้งหมดพร้อมคะแนนของแต่ละคนในแต่ละไลน์
+            </p>
+          </div>
+          <button
+            type="button"
+            onclick="switchTab('survey')"
+            class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+          >
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span data-i18n="nav_survey">ทำแบบสำรวจ</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
+                <th class="py-3 px-4 font-semibold" data-i18n="col_date">วันที่</th>
+                <th class="py-3 px-4 font-semibold" data-i18n="col_line">ไลน์ผลิต</th>
+                <th class="py-3 px-4 font-semibold" data-i18n="col_emp_id">รหัสพนักงาน</th>
+                <th class="py-3 px-4 font-semibold" data-i18n="col_emp_name">ชื่อพนักงาน</th>
+                <th class="py-3 px-4 font-semibold text-center" data-i18n="col_score">คะแนนที่ได้</th>
+                <th class="py-3 px-4 font-semibold text-center" data-i18n="col_pct">คิดเป็น %</th>
+                <th class="py-3 px-4 font-semibold text-right" data-i18n="col_action">รายละเอียด</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-recent-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- TAB 2: NEW SURVEY FORM (ใส่คะแนนและบันทึกลงชีต "Survey list")         -->
+    <!-- ================================================================== -->
+    <section id="tab-survey" class="tab-section hidden max-w-3xl mx-auto">
+      <form onsubmit="handleSurveySubmit(event)" class="space-y-5">
+        <!-- Header Card -->
+        <div class="glass-card p-5 rounded-2xl shadow-sm border-l-4 border-l-teal-600">
+          <h2 class="text-lg sm:text-xl font-bold text-slate-900" data-i18n="form_title">
+            บันทึกการสำรวจความปลอดภัย (Safety Survey)
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-1" data-i18n="form_subtitle">
+            ประเมินความปลอดภัยของพนักงานหน้างานและบันทึกลงชีต "Survey list"
+          </p>
+        </div>
+
+        <!-- Employee & Line Information -->
+        <div class="glass-card p-5 rounded-2xl shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" data-i18n="field_date">วันที่สำรวจ *</label>
+            <input
+              type="date"
+              id="survey-date"
+              required
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" data-i18n="field_line">ไลน์การผลิต (Production Line) *</label>
+            <select
+              id="survey-line"
+              required
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+            ></select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" data-i18n="field_emp_id">รหัสพนักงาน (Employee ID) *</label>
+            <input
+              type="text"
+              id="survey-emp-id"
+              required
+              data-i18n-placeholder="field_emp_id_placeholder"
+              placeholder="เช่น FA-1024"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" data-i18n="field_emp_name">ชื่อ-นามสกุล พนักงาน *</label>
+            <input
+              type="text"
+              id="survey-emp-name"
+              required
+              data-i18n-placeholder="field_emp_name_placeholder"
+              placeholder="ระบุชื่อพนักงานที่รับการตรวจ"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" data-i18n="field_auditor">ผู้ตรวจประเมิน (Auditor / Leader)</label>
+            <input
+              type="text"
+              id="survey-auditor"
+              data-i18n-placeholder="field_auditor_placeholder"
+              placeholder="ชื่อหัวหน้างาน / จป."
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+        </div>
+
+        <!-- Questions List (from "Question" sheet) -->
+        <div class="space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 px-1">
+            <h3 class="text-sm sm:text-base font-bold text-slate-800" data-i18n="questions_section_title">
+              หัวข้อคำถามความปลอดภัย (จากชีต Question)
+            </h3>
+            <span class="text-xs font-medium text-slate-500" data-i18n="score_guide">
+              1 = ต้องปรับปรุง | 3 = ปานกลาง | 5 = ดีเยี่ยมปลอดภัย 100%
+            </span>
+          </div>
+
+          <div id="survey-questions-container" class="space-y-3"></div>
+        </div>
+
+        <!-- Note & Live Total Score -->
+        <div class="glass-card p-5 rounded-2xl shadow-sm space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" data-i18n="field_note">ข้อเสนอแนะ / สิ่งที่พบเห็นเพิ่มเติม</label>
+            <textarea
+              id="survey-note"
+              rows="2"
+              data-i18n-placeholder="field_note_placeholder"
+              placeholder="ระบุจุดที่ต้องแก้ไข หรือชมเชย (ถ้ามี)..."
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            ></textarea>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-between">
+            <span class="text-sm font-bold text-teal-900" data-i18n="live_score_label">คะแนนรวมที่ได้</span>
+            <span id="live-total-score" class="text-xl sm:text-2xl font-extrabold text-teal-800">25 / 25 (100%)</span>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-3 pt-1">
+            <button
+              type="submit"
+              class="flex-1 py-3.5 px-6 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm sm:text-base shadow-md flex items-center justify-center gap-2 transition"
+            >
+              <i data-lucide="save" class="w-5 h-5"></i>
+              <span data-i18n="btn_submit_survey">บันทึกผลสำรวจลง Google Sheets</span>
+            </button>
+            <button
+              type="button"
+              onclick="clearSurveyForm()"
+              class="py-3.5 px-5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition"
+              data-i18n="btn_clear_form"
+            >
+              ล้างฟอร์ม
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- TAB 3: QUESTIONS MANAGEMENT (จัดการชีต "Question": เพิ่ม/แก้ไข/ลบ)   -->
+    <!-- ================================================================== -->
+    <section id="tab-questions" class="tab-section hidden space-y-5">
+      <div class="glass-card p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg sm:text-xl font-bold text-slate-900" data-i18n="q_mgr_title">
+            จัดการคำถามความปลอดภัย (ชีต "Question")
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-0.5" data-i18n="q_mgr_subtitle">
+            เพิ่ม แก้ไข หรือลบคำถามที่จะใช้สอบถามพนักงาน รองรับ 3 ภาษา (ไทย / จีน / พม่า)
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onclick="openQuestionEditor(null)"
+          class="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2 shrink-0 transition"
+        >
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span data-i18n="btn_add_question">เพิ่มคำถามใหม่</span>
+        </button>
+      </div>
+
+      <div id="questions-manager-list" class="space-y-3"></div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- TAB 4: SURVEY LIST RECORDS (ข้อมูลทั้งหมดในชีต "Survey list")         -->
+    <!-- ================================================================== -->
+    <section id="tab-records" class="tab-section hidden space-y-5">
+      <div class="glass-card p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg sm:text-xl font-bold text-slate-900" data-i18n="table_title">
+            ตารางข้อมูลผลสำรวจรายบุคคล (ชีต "Survey list")
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-500 mt-0.5" data-i18n="table_subtitle">
+            แสดงรายการสำรวจทั้งหมดพร้อมคะแนนของแต่ละคนในแต่ละไลน์
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onclick="exportSurveysToCSV()"
+            class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition"
+          >
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span data-i18n="btn_export_csv">ส่งออก Excel (CSV)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
+                <th class="py-3.5 px-4 font-semibold" data-i18n="col_date">วันที่</th>
+                <th class="py-3.5 px-4 font-semibold" data-i18n="col_line">ไลน์ผลิต</th>
+                <th class="py-3.5 px-4 font-semibold" data-i18n="col_emp_id">รหัสพนักงาน</th>
+                <th class="py-3.5 px-4 font-semibold" data-i18n="col_emp_name">ชื่อพนักงาน</th>
+                <th class="py-3.5 px-4 font-semibold" data-i18n="col_auditor">ผู้ตรวจ</th>
+                <th class="py-3.5 px-4 font-semibold text-center" data-i18n="col_score">คะแนนที่ได้</th>
+                <th class="py-3.5 px-4 font-semibold text-center" data-i18n="col_pct">คิดเป็น %</th>
+                <th class="py-3.5 px-4 font-semibold" data-i18n="col_note">หมายเหตุ</th>
+                <th class="py-3.5 px-4 font-semibold text-right" data-i18n="col_action">รายละเอียด</th>
+              </tr>
+            </thead>
+            <tbody id="records-table-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================================================================== -->
+  <!-- MOBILE BOTTOM NAVIGATION BAR (สำหรับโทรศัพท์มือถือ)                     -->
+  <!-- ==================================================================== -->
+  <nav class="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 shadow-lg grid grid-cols-5 py-1.5 px-1">
+    <button
+      type="button"
+      data-tab="dashboard"
+      onclick="switchTab('dashboard')"
+      class="mobile-nav-btn active flex flex-col items-center justify-center py-1 text-slate-500"
+    >
+      <span class="mobile-nav-indicator px-3 py-0.5 rounded-full">
+        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+      </span>
+      <span class="text-[10px] mt-0.5 truncate max-w-[64px]" data-i18n="nav_dashboard">แดชบอร์ด</span>
+    </button>
+
+    <button
+      type="button"
+      data-tab="survey"
+      onclick="switchTab('survey')"
+      class="mobile-nav-btn flex flex-col items-center justify-center py-1 text-slate-500"
+    >
+      <span class="mobile-nav-indicator px-3 py-0.5 rounded-full">
+        <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+      </span>
+      <span class="text-[10px] mt-0.5 truncate max-w-[64px]" data-i18n="nav_survey">ทำสำรวจ</span>
+    </button>
+
+    <button
+      type="button"
+      data-tab="questions"
+      onclick="switchTab('questions')"
+      class="mobile-nav-btn flex flex-col items-center justify-center py-1 text-slate-500"
+    >
+      <span class="mobile-nav-indicator px-3 py-0.5 rounded-full">
+        <i data-lucide="list-checks" class="w-5 h-5"></i>
+      </span>
+      <span class="text-[10px] mt-0.5 truncate max-w-[64px]" data-i18n="nav_questions">คำถาม</span>
+    </button>
+
+    <button
+      type="button"
+      data-tab="records"
+      onclick="switchTab('records')"
+      class="mobile-nav-btn flex flex-col items-center justify-center py-1 text-slate-500"
+    >
+      <span class="mobile-nav-indicator px-3 py-0.5 rounded-full">
+        <i data-lucide="table-2" class="w-5 h-5"></i>
+      </span>
+      <span class="text-[10px] mt-0.5 truncate max-w-[64px]" data-i18n="nav_records">รายการ</span>
+    </button>
+
+    <button
+      type="button"
+      onclick="openSettingsModal()"
+      class="mobile-nav-btn flex flex-col items-center justify-center py-1 text-slate-500"
+    >
+      <span class="mobile-nav-indicator px-3 py-0.5 rounded-full">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+      </span>
+      <span class="text-[10px] mt-0.5 truncate max-w-[64px]" data-i18n="nav_settings">ตั้งค่าชีต</span>
+    </button>
+  </nav>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 1: ADD / EDIT QUESTION ("Question" Sheet)                      -->
+  <!-- ==================================================================== -->
+  <div id="question-editor-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base sm:text-lg font-bold text-slate-900" data-i18n="q_mgr_title">
+          จัดการคำถามความปลอดภัย (ชีต "Question")
+        </h3>
+        <button type="button" onclick="closeQuestionEditor()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="saveQuestionFromEditor(event)" class="space-y-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="q_col_id">รหัสข้อ</label>
+            <input
+              type="text"
+              id="q-edit-id"
+              required
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-mono font-bold"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="q_col_category">หมวดหมู่</label>
+            <input
+              type="text"
+              id="q-edit-category"
+              placeholder="PPE / 5S / Machine"
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm"
+            />
+          </div>
+
+          <div class="col-span-2 sm:col-span-1">
+            <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="q_col_max">คะแนนเต็ม</label>
+            <input
+              type="number"
+              id="q-edit-max"
+              min="1"
+              max="100"
+              value="5"
+              required
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold"
+            />
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-bold text-slate-700" data-i18n="q_col_th">🇹🇭 คำถาม (ภาษาไทย) *</label>
+            <button
+              type="button"
+              onclick="handleAutoTranslateInEditor()"
+              class="text-xs font-semibold text-teal-700 hover:text-teal-900 flex items-center gap-1 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 transition"
+            >
+              <i data-lucide="languages" class="w-3.5 h-3.5"></i>
+              <span data-i18n="btn_auto_translate">แปลภาษาจีน/พม่า อัตโนมัติ</span>
+            </button>
+          </div>
+          <textarea
+            id="q-edit-th"
+            rows="2"
+            required
+            placeholder="พิมพ์คำถามภาษาไทยที่นี่..."
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm"
+          ></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="q_col_zh">🇨🇳 คำถาม (ภาษาจีน - 中文)</label>
+          <textarea
+            id="q-edit-zh"
+            rows="2"
+            placeholder="请输入中文安全检查问题..."
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm"
+          ></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="q_col_my">🇲🇲 คำถาม (ภาษาพม่า - မြန်မာ)</label>
+          <textarea
+            id="q-edit-my"
+            rows="2"
+            placeholder="မြန်မာဘာသာဖြင့် မေးခွန်းရိုက်ထည့်ပါ..."
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm"
+          ></textarea>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="q-edit-active" checked class="w-4 h-4 text-teal-600 rounded" />
+          <label for="q-edit-active" class="text-xs font-semibold text-slate-700" data-i18n="q_status_active">ใช้งานคำถามข้อนี้</label>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            onclick="closeQuestionEditor()"
+            class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+            data-i18n="btn_cancel"
+          >
+            ยกเลิก
+          </button>
+          <button
+            type="submit"
+            class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm"
+            data-i18n="btn_save_question"
+          >
+            บันทึกคำถาม
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 2: SURVEY SCORE BREAKDOWN DETAIL                               -->
+  <!-- ==================================================================== -->
+  <div id="survey-detail-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-bold text-slate-900" data-i18n="btn_view_detail">รายละเอียดคะแนนรายข้อ</h3>
+        <button type="button" onclick="closeSurveyDetailModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="survey-detail-content"></div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- MODAL 3: GOOGLE SHEETS & APPS SCRIPT SETUP                           -->
+  <!-- ==================================================================== -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="file-spreadsheet" class="w-5 h-5 text-emerald-600"></i>
+          <span data-i18n="settings_title">ตั้งค่าการเชื่อมต่อ Google Sheets & Apps Script</span>
+        </h3>
+        <button type="button" onclick="closeSettingsModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-sm">
+        <!-- Linked Google Sheet Info -->
+        <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div class="text-xs font-bold text-emerald-900" data-i18n="settings_sheet_label">ลิงก์ Google Sheets ของโปรเจกต์นี้:</div>
+            <div class="text-xs font-mono text-emerald-700 break-all">ID: 1bM68aArN9WAbwrvFrKC1hpAy335SSgzZPZBtDp-Znpc</div>
+          </div>
+          <a
+            href="https://docs.google.com/spreadsheets/d/1bM68aArN9WAbwrvFrKC1hpAy335SSgzZPZBtDp-Znpc/edit?gid=0#gid=0"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shrink-0 text-center"
+            data-i18n="btn_open_sheet"
+          >
+            เปิด Google Sheets
+          </a>
+        </div>
+
+        <!-- GAS Web App URL Input -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5" data-i18n="settings_url_label">
+            Apps Script Web App URL (สำหรับบันทึกข้อมูลลงชีตโดยตรง):
+          </label>
+          <input
+            type="url"
+            id="input-gas-url"
+            placeholder="https://script.google.com/macros/s/.../exec"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          <p class="text-xs text-slate-500 mt-1.5 leading-relaxed" data-i18n="settings_url_help">
+            นำโค้ดจากไฟล์ google-apps-script/Code.gs ไปวางใน Extensions > Apps Script ของ Google Sheets แล้วกด Deploy > New deployment (Web app) จากนั้นนำ URL มาวางที่นี่
+          </p>
+        </div>
+
+        <!-- Quick Copy Apps Script Button -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div class="text-xs text-slate-600">
+            <strong class="text-slate-800">google-apps-script/Code.gs</strong> — สร้างชีต <code class="bg-slate-200 px-1 rounded">Question</code> และ <code class="bg-slate-200 px-1 rounded">Survey list</code> อัตโนมัติ
+          </div>
+          <button
+            type="button"
+            onclick="copyAppsScriptCode()"
+            class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition"
+          >
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span data-i18n="btn_copy_gas">คัดลอกโค้ด Apps Script (Code.gs)</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+        <button
+          type="button"
+          onclick="closeSettingsModal()"
+          class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+          data-i18n="btn_cancel"
+        >
+          ยกเลิก
+        </button>
+        <button
+          type="button"
+          onclick="saveSettingsModal()"
+          class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm"
+          data-i18n="btn_save_settings"
+        >
+          บันทึกการตั้งค่า
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-20 sm:bottom-6 right-4 z-50 flex flex-col gap-2"></div>
+
+  <!-- Application Scripts -->
+  <script src="js/i18n.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-main: 'Inter', 'Noto Sans Thai', 'Noto Sans SC', 'Noto Sans Myanmar', sans-serif;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: #f1f5f9;
+  color: #0f172a;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1.6;
+}
+
+/* Support Burmese script tall line-height to prevent clipping */
+body[data-lang="my"] {
+  line-height: 1.85;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Score Selector Buttons for Mobile & Notebook */
+.score-btn {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+.score-btn:active {
+  transform: scale(0.94);
+}
+.score-btn.selected-1 {
+  background-color: #ef4444;
+  color: #ffffff;
+  border-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+.score-btn.selected-2 {
+  background-color: #f97316;
+  color: #ffffff;
+  border-color: #ea580c;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
+}
+.score-btn.selected-3 {
+  background-color: #eab308;
+  color: #ffffff;
+  border-color: #ca8a04;
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.35);
+}
+.score-btn.selected-4 {
+  background-color: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+.score-btn.selected-5 {
+  background-color: #0d9488;
+  color: #ffffff;
+  border-color: #0f766e;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+}
+
+/* Language pill active state */
+.lang-btn.active {
+  background-color: #0f766e;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.3);
+}
+
+/* Navigation active state */
+.nav-tab.active {
+  color: #0f766e;
+  border-bottom-color: #0f766e;
+  background-color: rgba(15, 118, 110, 0.06);
+}
+
+.mobile-nav-btn.active {
+  color: #0f766e;
+  font-weight: 600;
+}
+.mobile-nav-btn.active .mobile-nav-indicator {
+  background-color: #ccfbf1;
+  color: #0f766e;
+}
+
+/* Card hover elevation */
+.glass-card {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+/* Safe area padding for mobile bottom navigation */
+.pb-safe {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
