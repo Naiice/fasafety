@@ -15,15 +15,15 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=4" />
 </head>
 <body class="min-h-screen flex flex-col pb-safe" data-lang="th">
 
   <!-- ==================================================================== -->
-  <!-- TOP HEADER (Responsive Mobile & Notebook)                            -->
+  <!-- TOP HEADER (Full-Screen Responsive Mobile & Notebook)                -->
   <!-- ==================================================================== -->
   <header class="sticky top-0 z-30 bg-slate-900 text-white shadow-md border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="w-full max-w-[1920px] mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
       <!-- Brand Logo & Title -->
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300 shrink-0">
@@ -89,12 +89,23 @@
         >
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
         </button>
+
+        <!-- Fullscreen Toggle Button (Notebook / Tablet) -->
+        <button
+          type="button"
+          onclick="toggleFullScreen()"
+          title="Fullscreen Dashboard"
+          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition"
+        >
+          <i data-lucide="maximize-2" class="w-4 h-4 text-teal-400"></i>
+          <span class="hidden lg:inline" data-i18n="btn_fullscreen">ขยายเต็มหน้าจอ</span>
+        </button>
       </div>
     </div>
 
-    <!-- Desktop Navigation Tabs (Notebook View) -->
+    <!-- Desktop Navigation Tabs (Notebook Full-Screen View) -->
     <div class="hidden sm:block bg-white text-slate-700 border-b border-slate-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+      <div class="w-full max-w-[1920px] mx-auto px-3 sm:px-6 flex items-center justify-between">
         <nav class="flex items-center space-x-1">
           <button
             type="button"
@@ -158,102 +169,127 @@
   </header>
 
   <!-- ==================================================================== -->
-  <!-- MAIN CONTENT AREA                                                    -->
+  <!-- MAIN CONTENT AREA (Full-Screen Responsive Container)                 -->
   <!-- ==================================================================== -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 sm:py-6 space-y-6">
+  <main class="flex-1 w-full max-w-[1920px] mx-auto px-3 sm:px-6 py-4 sm:py-5 space-y-4">
 
     <!-- ================================================================== -->
-    <!-- TAB 1: DASHBOARD (กราฟจำนวนรายวัน + คะแนนรายไลน์ + คะแนนรายคน)     -->
+    <!-- TAB 1: DASHBOARD (3 กราฟเรียงซ้ายไปขวาด้านบน + ตารางคะแนนด้านล่าง)      -->
     <!-- ================================================================== -->
-    <section id="tab-dashboard" class="tab-section space-y-6">
+    <section id="tab-dashboard" class="tab-section space-y-4">
 
-      <!-- KPI Summary Cards (4 Cards) -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between">
+      <!-- KPI Summary Cards + Compact Filter Bar -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="glass-card p-3.5 sm:p-4 rounded-2xl flex items-center justify-between border-l-4 border-l-teal-600">
           <div>
-            <p class="text-xs font-semibold text-slate-500" data-i18n="kpi_total_surveys">จำนวนที่สำรวจทั้งหมด</p>
-            <p id="kpi-total-val" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</p>
+            <p class="text-[11px] sm:text-xs font-semibold text-slate-500" data-i18n="kpi_total_surveys">จำนวนที่สำรวจทั้งหมด</p>
+            <p id="kpi-total-val" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5">0</p>
           </div>
-          <div class="w-11 h-11 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
-            <i data-lucide="users" class="w-6 h-6"></i>
+          <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+            <i data-lucide="users" class="w-5 h-5"></i>
           </div>
         </div>
 
-        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between">
+        <div class="glass-card p-3.5 sm:p-4 rounded-2xl flex items-center justify-between border-l-4 border-l-blue-600">
           <div>
-            <p class="text-xs font-semibold text-slate-500" data-i18n="kpi_today_surveys">สำรวจวันนี้ (คน)</p>
-            <p id="kpi-today-val" class="text-2xl sm:text-3xl font-extrabold text-teal-700 mt-1">0</p>
+            <p class="text-[11px] sm:text-xs font-semibold text-slate-500" data-i18n="kpi_today_surveys">สำรวจวันนี้ (คน)</p>
+            <p id="kpi-today-val" class="text-xl sm:text-2xl font-extrabold text-blue-700 mt-0.5">0</p>
           </div>
-          <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-            <i data-lucide="calendar-check-2" class="w-6 h-6"></i>
+          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
           </div>
         </div>
 
-        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between">
+        <div class="glass-card p-3.5 sm:p-4 rounded-2xl flex items-center justify-between border-l-4 border-l-amber-500">
           <div>
-            <p class="text-xs font-semibold text-slate-500" data-i18n="kpi_avg_score">คะแนนความปลอดภัยเฉลี่ย</p>
-            <p id="kpi-avg-val" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">0%</p>
+            <p class="text-[11px] sm:text-xs font-semibold text-slate-500" data-i18n="kpi_avg_score">คะแนนความปลอดภัยเฉลี่ย</p>
+            <p id="kpi-avg-val" class="text-xl sm:text-2xl font-extrabold text-amber-600 mt-0.5">0.0 / 10</p>
           </div>
-          <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <i data-lucide="award" class="w-6 h-6"></i>
+          <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <i data-lucide="award" class="w-5 h-5"></i>
           </div>
         </div>
 
-        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between">
+        <div class="glass-card p-3.5 sm:p-4 rounded-2xl flex items-center justify-between border-l-4 border-l-emerald-600">
           <div>
-            <p class="text-xs font-semibold text-slate-500" data-i18n="kpi_pass_rate">อัตราผ่านเกณฑ์ (≥80%)</p>
-            <p id="kpi-pass-val" class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">0%</p>
+            <p class="text-[11px] sm:text-xs font-semibold text-slate-500" data-i18n="kpi_pass_rate">อัตราผ่านเกณฑ์ (≥80%)</p>
+            <p id="kpi-pass-val" class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-0.5">0%</p>
           </div>
-          <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
           </div>
         </div>
       </div>
 
-      <!-- Filter Bar -->
-      <div class="glass-card p-4 rounded-2xl shadow-sm">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+      <!-- Filter Bar + Global Bar/Line Quick Switcher -->
+      <div class="glass-card p-3.5 sm:p-4 rounded-2xl">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 items-end">
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="field_line">ไลน์การผลิต</label>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1" data-i18n="field_line">แผนก / ไลน์การผลิต</label>
             <select
               id="filter-line"
               onchange="applyDashboardFilters()"
-              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
             >
               <option value="ALL">ทุกไลน์การผลิต (All Lines)</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="filter_date_from">ตั้งแต่วันที่</label>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1" data-i18n="filter_date_from">ตั้งแต่วันที่</label>
             <input
               type="date"
               id="filter-date-from"
               onchange="applyDashboardFilters()"
-              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="filter_date_to">ถึงวันที่</label>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1" data-i18n="filter_date_to">ถึงวันที่</label>
             <input
               type="date"
               id="filter-date-to"
               onchange="applyDashboardFilters()"
-              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="col_emp_name">ค้นหาพนักงาน</label>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1" data-i18n="col_emp_name">ค้นหาพนักงาน</label>
             <input
               type="text"
               id="filter-search"
               oninput="applyDashboardFilters()"
               data-i18n-placeholder="filter_search_emp"
               placeholder="ค้นหารหัส / ชื่อพนักงาน..."
-              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
+          </div>
+
+          <!-- Global Bar / Line Mode Switcher -->
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">รูปแบบกราฟ (Chart Style)</label>
+            <div class="grid grid-cols-2 bg-slate-100 p-1 rounded-xl border border-slate-200 h-[38px]">
+              <button
+                type="button"
+                id="global-chart-bar"
+                onclick="setAllChartsMode('bar')"
+                class="chart-toggle-btn active rounded-lg text-xs font-bold flex items-center justify-center gap-1"
+              >
+                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i>
+                <span data-i18n="chart_type_bar">กราฟแท่ง</span>
+              </button>
+              <button
+                type="button"
+                id="global-chart-line"
+                onclick="setAllChartsMode('line')"
+                class="chart-toggle-btn rounded-lg text-xs font-bold flex items-center justify-center gap-1"
+              >
+                <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                <span data-i18n="chart_type_line">กราฟเส้น</span>
+              </button>
+            </div>
           </div>
 
           <div class="flex gap-2">
@@ -269,81 +305,179 @@
         </div>
       </div>
 
-      <!-- Charts Row 1: Daily Survey Count Chart + Score by Line Chart -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Chart 1: Daily Survey Count -->
-        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex flex-col">
-          <div class="mb-3">
-            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-              <i data-lucide="calendar-days" class="w-5 h-5 text-teal-600"></i>
-              <span data-i18n="chart_daily_title">จำนวนพนักงานที่ถูก Survey ในแต่ละวัน</span>
-            </h2>
-            <p class="text-xs text-slate-500 mt-0.5" data-i18n="chart_daily_sub">
-              สรุปจำนวนการสุ่มตรวจความปลอดภัยรายวัน และคะแนนเฉลี่ยรายวัน
-            </p>
+      <!-- ================================================================ -->
+      <!-- TOP ROW: 3 CHARTS SIDE-BY-SIDE (เรียงจากซ้ายไปขวาในแถวเดียวกัน)       -->
+      <!-- ================================================================ -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- CHART 1 (ซ้าย): จำนวนพนักงานที่ถูก Survey ในแต่ละวัน (แบ่งตามแผนก) -->
+        <div class="glass-card p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-teal-600 shrink-0"></span>
+                <span data-i18n="chart_daily_title">1. จำนวนพนักงานที่ถูก Survey ในแต่ละวัน (แบ่งตามแผนก)</span>
+              </h2>
+              <p class="text-[11px] text-slate-500 mt-0.5" data-i18n="chart_daily_sub">
+                เปรียบเทียบจำนวนพนักงานที่ถูกสำรวจในแต่ละวัน แยกสีตามแผนก/ไลน์
+              </p>
+            </div>
+
+            <!-- Individual Bar / Line Toggle -->
+            <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
+              <button
+                type="button"
+                id="btn-daily-bar"
+                onclick="setChartType('daily', 'bar')"
+                class="chart-toggle-btn active px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1"
+                title="Bar Chart"
+              >
+                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i>
+                <span class="hidden xl:inline" data-i18n="chart_type_bar">กราฟแท่ง</span>
+              </button>
+              <button
+                type="button"
+                id="btn-daily-line"
+                onclick="setChartType('daily', 'line')"
+                class="chart-toggle-btn px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1"
+                title="Line Chart"
+              >
+                <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                <span class="hidden xl:inline" data-i18n="chart_type_line">กราฟเส้น</span>
+              </button>
+            </div>
           </div>
-          <div class="relative h-64 sm:h-72 w-full">
+
+          <div class="relative h-64 sm:h-72 xl:h-80 w-full">
             <canvas id="chart-daily"></canvas>
           </div>
         </div>
 
-        <!-- Chart 2: Score by Line -->
-        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex flex-col">
-          <div class="mb-3">
-            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-              <i data-lucide="factory" class="w-5 h-5 text-blue-600"></i>
-              <span data-i18n="chart_line_title">คะแนนความปลอดภัยแยกตามไลน์ผลิต (Score by Line)</span>
-            </h2>
-            <p class="text-xs text-slate-500 mt-0.5" data-i18n="chart_line_sub">
-              เปรียบเทียบคะแนนเฉลี่ย (%) และจำนวนคนที่ตรวจในแต่ละไลน์
-            </p>
+        <!-- CHART 2 (กลาง): กราฟสรุปจำนวนพนักงานที่ทำการสำรวจ (แบ่งตามแผนก) -->
+        <div class="glass-card p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0"></span>
+                <span data-i18n="chart_dept_title">2. สรุปจำนวนพนักงานที่ทำการสำรวจ (แบ่งตามแผนก)</span>
+              </h2>
+              <p class="text-[11px] text-slate-500 mt-0.5" data-i18n="chart_dept_sub">
+                ยอดรวมจำนวนพนักงานที่ได้รับการสำรวจสะสมในแต่ละแผนก/ไลน์
+              </p>
+            </div>
+
+            <!-- Individual Bar / Line Toggle -->
+            <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
+              <button
+                type="button"
+                id="btn-dept-bar"
+                onclick="setChartType('dept', 'bar')"
+                class="chart-toggle-btn active px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1"
+                title="Bar Chart"
+              >
+                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i>
+                <span class="hidden xl:inline" data-i18n="chart_type_bar">กราฟแท่ง</span>
+              </button>
+              <button
+                type="button"
+                id="btn-dept-line"
+                onclick="setChartType('dept', 'line')"
+                class="chart-toggle-btn px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1"
+                title="Line Chart"
+              >
+                <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                <span class="hidden xl:inline" data-i18n="chart_type_line">กราฟเส้น</span>
+              </button>
+            </div>
           </div>
-          <div class="relative h-64 sm:h-72 w-full">
+
+          <div class="relative h-64 sm:h-72 xl:h-80 w-full">
             <canvas id="chart-line"></canvas>
           </div>
         </div>
-      </div>
 
-      <!-- Chart Row 2: Individual Employee Score by Line -->
-      <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-              <i data-lucide="user-check" class="w-5 h-5 text-purple-600"></i>
-              <span data-i18n="chart_emp_title">คะแนนของพนักงานแต่ละคน และแยกตามไลน์</span>
-            </h2>
-            <p class="text-xs text-slate-500 mt-0.5" data-i18n="chart_emp_sub">
-              แสดงคะแนนรายบุคคลเทียบกับเกณฑ์มาตรฐาน 80%
-            </p>
+        <!-- CHART 3 (ขวา): Bubble Chart คะแนนเฉลี่ยของแต่ละแผนก (แกน X = หมวดหมู่, แกน Y = คะแนน 1-10) -->
+        <div class="glass-card p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-600 shrink-0"></span>
+                <span data-i18n="chart_bubble_title">3. คะแนนเฉลี่ยของแต่ละแผนก (Bubble Chart)</span>
+              </h2>
+              <p class="text-[11px] text-slate-500 mt-0.5" data-i18n="chart_bubble_sub">
+                แกน X = หมวดหมู่ | แกน Y = คะแนน (1-10) แยกสีตามแผนก
+              </p>
+            </div>
+
+            <!-- Individual Bubble / Bar / Line Toggle -->
+            <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
+              <button
+                type="button"
+                id="btn-bubble-bubble"
+                onclick="setChartType('bubble', 'bubble')"
+                class="chart-toggle-btn active px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1"
+                title="Bubble Chart"
+              >
+                <i data-lucide="circle-dot" class="w-3.5 h-3.5"></i>
+                <span class="hidden xl:inline" data-i18n="chart_type_bubble">Bubble</span>
+              </button>
+              <button
+                type="button"
+                id="btn-bubble-bar"
+                onclick="setChartType('bubble', 'bar')"
+                class="chart-toggle-btn px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1"
+                title="Bar Chart"
+              >
+                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i>
+                <span class="hidden xl:inline" data-i18n="chart_type_bar">กราฟแท่ง</span>
+              </button>
+              <button
+                type="button"
+                id="btn-bubble-line"
+                onclick="setChartType('bubble', 'line')"
+                class="chart-toggle-btn px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1"
+                title="Line Chart"
+              >
+                <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                <span class="hidden xl:inline" data-i18n="chart_type_line">กราฟเส้น</span>
+              </button>
+            </div>
           </div>
-          <!-- Line Quick Filter Pills -->
-          <div id="emp-chart-line-pills" class="flex flex-wrap items-center gap-1.5"></div>
-        </div>
 
-        <div class="relative h-72 sm:h-80 w-full">
-          <canvas id="chart-employee"></canvas>
+          <div class="relative h-64 sm:h-72 xl:h-80 w-full">
+            <canvas id="chart-bubble"></canvas>
+          </div>
         </div>
       </div>
 
-      <!-- Recent Survey Summary Table on Dashboard -->
-      <div class="glass-card rounded-2xl shadow-sm overflow-hidden">
-        <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+      <!-- ================================================================ -->
+      <!-- BOTTOM ROW: ตารางคะแนนของพนักงานแต่ละคน และแยกตามไลน์             -->
+      <!-- ================================================================ -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
-            <h3 class="text-base font-bold text-slate-900" data-i18n="table_title">
-              ตารางข้อมูลผลสำรวจรายบุคคล (ชีต "Survey list")
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="user-check" class="w-5 h-5 text-teal-600"></i>
+              <span data-i18n="chart_emp_title">คะแนนของพนักงานแต่ละคน และแยกตามไลน์ (Individual Score & Line)</span>
             </h3>
-            <p class="text-xs text-slate-500" data-i18n="table_subtitle">
-              แสดงรายการสำรวจทั้งหมดพร้อมคะแนนของแต่ละคนในแต่ละไลน์
+            <p class="text-xs text-slate-500 mt-0.5" data-i18n="chart_emp_sub">
+              ตารางแสดงผลคะแนนรายบุคคลและแยกตามแผนก/ไลน์ (คะแนนเต็ม 10)
             </p>
           </div>
-          <button
-            type="button"
-            onclick="switchTab('survey')"
-            class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
-          >
-            <i data-lucide="plus-circle" class="w-4 h-4"></i>
-            <span data-i18n="nav_survey">ทำแบบสำรวจ</span>
-          </button>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Line Quick Filter Pills -->
+            <div id="emp-chart-line-pills" class="flex flex-wrap items-center gap-1.5"></div>
+
+            <button
+              type="button"
+              onclick="switchTab('survey')"
+              class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition shrink-0"
+            >
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span data-i18n="nav_survey">ทำแบบสำรวจ</span>
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto">
@@ -351,10 +485,11 @@
             <thead>
               <tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
                 <th class="py-3 px-4 font-semibold" data-i18n="col_date">วันที่</th>
-                <th class="py-3 px-4 font-semibold" data-i18n="col_line">ไลน์ผลิต</th>
+                <th class="py-3 px-4 font-semibold" data-i18n="col_line">ไลน์ผลิต / แผนก</th>
                 <th class="py-3 px-4 font-semibold" data-i18n="col_emp_id">รหัสพนักงาน</th>
                 <th class="py-3 px-4 font-semibold" data-i18n="col_emp_name">ชื่อพนักงาน</th>
-                <th class="py-3 px-4 font-semibold text-center" data-i18n="col_score">คะแนนที่ได้</th>
+                <th class="py-3 px-4 font-semibold" data-i18n="col_auditor">ผู้ตรวจ</th>
+                <th class="py-3 px-4 font-semibold text-center" data-i18n="col_score">คะแนนที่ได้ (เต็ม 10)</th>
                 <th class="py-3 px-4 font-semibold text-center" data-i18n="col_pct">คิดเป็น %</th>
                 <th class="py-3 px-4 font-semibold text-right" data-i18n="col_action">รายละเอียด</th>
               </tr>
@@ -856,7 +991,7 @@
   <div id="toast-container" class="fixed bottom-20 sm:bottom-6 right-4 z-50 flex flex-col gap-2"></div>
 
   <!-- Application Scripts -->
-  <script src="js/i18n.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/i18n.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>
