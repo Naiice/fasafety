@@ -22,25 +22,48 @@ const STORAGE_KEYS = {
 };
 
 const PRODUCTION_LINES = [
-  'FA-Line 1',
-  'FA-Line 2',
-  'FA-Line 3',
-  'FA-Line 4',
-  'Sub-Assy Line',
-  'Packing & QA'
+  'Line1',
+  'Line2',
+  'Line3',
+  'Line4',
+  'Line5',
+  'Line6',
+  'Line7',
+  'Line8',
+  'Line9',
+  'Line11',
+  'Line12',
+  'Electrics Box(电控)',
+  'Panel(度盘)',
+  'Painting(喷粉)',
+  'Piping(管组)',
+  'Helium(氦检)',
+  'Aluminium(铝车间)'
 ];
 
 const LINE_COLORS = {
-  'FA-Line 1': '#0d9488',
-  'FA-Line 2': '#2563eb',
-  'FA-Line 3': '#7c3aed',
-  'FA-Line 4': '#ea580c',
-  'Sub-Assy Line': '#db2777',
-  'Packing & QA': '#059669'
+  'Line1': '#0d9488',
+  'Line2': '#2563eb',
+  'Line3': '#7c3aed',
+  'Line4': '#ea580c',
+  'Line5': '#db2777',
+  'Line6': '#059669',
+  'Line7': '#0284c7',
+  'Line8': '#d97706',
+  'Line9': '#4f46e5',
+  'Line11': '#e11d48',
+  'Line12': '#0891b2',
+  'Electrics Box(电控)': '#9333ea',
+  'Panel(度盘)': '#ca8a04',
+  'Painting(喷粉)': '#dc2626',
+  'Piping(管组)': '#16a34a',
+  'Helium(氦检)': '#0369a1',
+  'Aluminium(铝车间)': '#475569'
 };
 
 const PALETTE_FALLBACK = [
-  '#0d9488', '#2563eb', '#7c3aed', '#ea580c', '#db2777', '#059669', '#0284c7', '#d97706', '#4f46e5', '#e11d48'
+  '#0d9488', '#2563eb', '#7c3aed', '#ea580c', '#db2777', '#059669', '#0284c7', '#d97706', '#4f46e5', '#e11d48',
+  '#0891b2', '#9333ea', '#ca8a04', '#dc2626', '#16a34a', '#0369a1', '#475569'
 ];
 
 function getLineColor(lineName, idx = 0) {
@@ -558,7 +581,7 @@ async function fetchSheetViaGviz(sheetName) {
         timestamp: extra.timestamp || dateStr,
         employee_id: empId || '-',
         employee_name: empName || empId || '-',
-        line: line || 'FA-Line 1',
+        line: line || 'Line1',
         auditor: extra.auditor || '',
         total_score: totalScore,
         max_score: maxScore,
@@ -860,6 +883,11 @@ function renderDailyChart(surveys) {
     };
   });
 
+  // คำนวณค่าสูงสุดของแกน Y แล้วเผื่อเพิ่มอีก 2 คะแนน/หน่วย เพื่อไม่ให้กราฟชนขอบบน
+  const allDailyVals = datasets.flatMap(ds => ds.data || []);
+  const maxDailyVal = allDailyVals.length > 0 ? Math.max(0, ...allDailyVals) : 0;
+  const yMaxDaily = Math.ceil(maxDailyVal) + 2;
+
   if (dailyChartInstance) {
     dailyChartInstance.destroy();
   }
@@ -890,6 +918,7 @@ function renderDailyChart(surveys) {
       scales: {
         y: {
           beginAtZero: true,
+          max: yMaxDaily,
           ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
           grid: { color: '#f1f5f9' },
           title: { display: true, text: t.chart_label_count, font: { size: 11, weight: 'bold' } }
@@ -918,6 +947,10 @@ function renderLineChart(surveys) {
   const counts = departments.map(dept =>
     surveys.filter(s => s.line === dept).length
   );
+  // คำนวณค่าสูงสุดของแกน Y แล้วเผื่อเพิ่มอีก 2 หน่วย เพื่อไม่ให้กราฟชนขอบบน
+  const maxDeptVal = counts.length > 0 ? Math.max(0, ...counts) : 0;
+  const yMaxDept = Math.ceil(maxDeptVal) + 2;
+
   const bgColors = departments.map((dept, idx) => hexToRgba(getLineColor(dept, idx), 0.85));
   const borderColors = departments.map((dept, idx) => getLineColor(dept, idx));
 
@@ -974,6 +1007,7 @@ function renderLineChart(surveys) {
       scales: {
         y: {
           beginAtZero: true,
+          max: yMaxDept,
           ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
           grid: { color: '#f1f5f9' },
           title: { display: true, text: t.chart_label_count, font: { size: 11, weight: 'bold' } }
@@ -990,7 +1024,7 @@ function renderLineChart(surveys) {
 /**
  * กราฟที่ 3 (ขวา): Bubble Chart แสดงผลคะแนนเฉลี่ยของแต่ละแผนก (แยกสีตามแผนก)
  * แกน X = หมวดหมู่ (หมวดที่ 1, หมวดที่ 2, หมวดที่ 3, คะแนนรวม)
- * แกน Y = คะแนน 1 - 10
+ * แกน Y = คะแนนสูงสุดในกราฟ + เผื่อเพิ่มอีก 2 คะแนน
  */
 function renderBubbleScoreChart(surveys) {
   const ctx = document.getElementById('chart-bubble');
@@ -1000,7 +1034,7 @@ function renderBubbleScoreChart(surveys) {
   const chartMode = state.chartTypes.bubble || 'bubble';
   const departments = getActiveDepartments(surveys);
 
-  // นิยามหมวดหมู่บนแกน X (แปลงคะแนนแต่ละหมวดเป็นสเกลเต็ม 10 เพื่อให้เปรียบเทียบบนแกน Y = 1-10 ได้ชัดเจน)
+  // นิยามหมวดหมู่บนแกน X (แปลงคะแนนแต่ละหมวดเป็นสเกลเต็ม 10 เพื่อให้เปรียบเทียบบนแกน Y ได้ชัดเจน)
   const categoryDefs = [
     { x: 1, label: t.cat_short_1 || 'หมวดที่ 1', qIds: ['Q1', 'Q2'], maxRaw: 2 },
     { x: 2, label: t.cat_short_2 || 'หมวดที่ 2', qIds: ['Q3', 'Q4'], maxRaw: 4 },
@@ -1036,6 +1070,19 @@ function renderBubbleScoreChart(surveys) {
 
     return Number((sumScaled10 / deptSurveys.length).toFixed(2));
   }
+
+  // คำนวณคะแนนมากที่สุดในกราฟ แล้วเผื่อแกน Y เพิ่มไปอีก 2 คะแนน เพื่อไม่ให้ชนขอบบน
+  let maxScoreVal = 0;
+  departments.forEach(dept => {
+    const deptSurveys = surveys.filter(s => s.line === dept);
+    if (deptSurveys.length > 0) {
+      categoryDefs.forEach(cat => {
+        const sc = calcDeptCategoryScore10(deptSurveys, cat);
+        if (sc > maxScoreVal) maxScoreVal = sc;
+      });
+    }
+  });
+  const yMaxScore = maxScoreVal > 0 ? Math.ceil(maxScoreVal) + 2 : 12;
 
   if (bubbleChartInstance) {
     bubbleChartInstance.destroy();
@@ -1116,13 +1163,15 @@ function renderBubbleScoreChart(surveys) {
             title: { display: true, text: t.q_col_category || 'หมวดหมู่', font: { size: 11, weight: 'bold' } }
           },
           y: {
+            beginAtZero: true,
             min: 0,
-            max: 10.5,
+            max: yMaxScore,
             grid: { color: '#f1f5f9' },
             ticks: {
               stepSize: 1,
+              precision: 0,
               font: { size: 11 },
-              callback: (val) => (val >= 1 && val <= 10 && Number.isInteger(val)) ? val : ''
+              callback: (val) => Number.isInteger(val) ? val : ''
             },
             title: { display: true, text: t.chart_label_avg_pct || 'คะแนน (1-10)', font: { size: 11, weight: 'bold' } }
           }
@@ -1181,9 +1230,10 @@ function renderBubbleScoreChart(surveys) {
       },
       scales: {
         y: {
+          beginAtZero: true,
           min: 0,
-          max: 10,
-          ticks: { stepSize: 1, font: { size: 11 } },
+          max: yMaxScore,
+          ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
           grid: { color: '#f1f5f9' },
           title: { display: true, text: t.chart_label_avg_pct || 'คะแนน (1-10)', font: { size: 11, weight: 'bold' } }
         },
@@ -1402,7 +1452,7 @@ async function handleSurveySubmit(event) {
   const t = I18N[state.lang] || I18N.th;
 
   const date = document.getElementById('survey-date').value || new Date().toISOString().slice(0, 10);
-  const line = document.getElementById('survey-line').value.trim() || 'FA-Line 1';
+  const line = document.getElementById('survey-line').value.trim() || 'Line1';
   const empId = document.getElementById('survey-emp-id').value.trim();
   const empName = document.getElementById('survey-emp-name').value.trim();
   const auditor = document.getElementById('survey-auditor').value.trim() || 'Safety Inspector';
@@ -1658,7 +1708,7 @@ function renderRecordsTable() {
       : pct >= 60
         ? 'bg-amber-100 text-amber-800'
         : 'bg-rose-100 text-rose-800';
-    const lineColor = LINE_COLORS[s.line] || '#0d9488';
+    const lineColor = getLineColor(s.line);
 
     return `
       <tr class="border-b border-slate-100 hover:bg-slate-50 transition">
