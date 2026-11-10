@@ -123,6 +123,10 @@ const I18N = {
     btn_copy_gas: 'คัดลอกโค้ด Apps Script (Code.gs)',
 
     // Notifications
+    btn_capture: 'Capture Dashboard',
+    msg_capturing: 'กำลังประมวลผลภาพหน้าจอ Dashboard...',
+    msg_capture_done: 'บันทึกภาพหน้าจอ Dashboard เรียบร้อยแล้ว!',
+    msg_capture_error: 'เกิดข้อผิดพลาดในการบันทึกภาพหน้าจอ',
     msg_survey_saved: 'บันทึกข้อมูลการสำรวจลงระบบเรียบร้อยแล้ว!',
     msg_question_saved: 'บันทึกคำถามลงในชีต Question เรียบร้อยแล้ว!',
     msg_question_deleted: 'ลบคำถามเรียบร้อยแล้ว',
@@ -247,6 +251,10 @@ const I18N = {
     btn_copy_gas: '复制 Apps Script 代码 (Code.gs)',
 
     // Notifications
+    btn_capture: '截图保存看板',
+    msg_capturing: '正在生成看板高清截图...',
+    msg_capture_done: '看板截图已成功下载！',
+    msg_capture_error: '生成截图时出错',
     msg_survey_saved: '安全巡检记录已成功保存！',
     msg_question_saved: '问题已成功保存至 Question 工作表！',
     msg_question_deleted: '问题已删除',
@@ -371,6 +379,10 @@ const I18N = {
     btn_copy_gas: 'Apps Script ကုဒ် ကူးယူရန် (Code.gs)',
 
     // Notifications
+    btn_capture: 'Capture ဓာတ်ပုံရိုက်ရန်',
+    msg_capturing: 'Dashboard ပုံရိပ်ကို ဖမ်းယူနေပါသည်...',
+    msg_capture_done: 'Dashboard ပုံကို သိမ်းဆည်းပြီးပါပြီ!',
+    msg_capture_error: 'ပုံဖမ်းယူရာတွင် အမှားအယွင်းရှိပါသည်',
     msg_survey_saved: 'စစ်ဆေးမှုမှတ်တမ်းကို အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!',
     msg_question_saved: 'မေးခွန်းကို Question ชีตသို့ သိမ်းဆည်းပြီးပါပြီ!',
     msg_question_deleted: 'မေးခွန်းကို ဖျက်ပြီးပါပြီ',
