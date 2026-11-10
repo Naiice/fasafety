@@ -11,11 +11,15 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+  <!-- Modern Screenshot & html2canvas CDN (สำหรับ Capture หน้า Dashboard คมชัดโดยกราฟและตัวอักษรไม่เคลื่อน) -->
+  <script src="https://cdn.jsdelivr.net/npm/modern-screenshot@4.6.0/dist/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="css/styles.css?v=5" />
+  <link rel="stylesheet" href="css/styles.css?v=6" />
 </head>
 <body class="min-h-screen flex flex-col pb-safe" data-lang="th">
 
@@ -88,6 +92,18 @@
           class="p-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white transition shadow-sm"
         >
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Capture Full Dashboard Button (Notebook & Mobile) -->
+        <button
+          type="button"
+          id="btn-capture-header"
+          onclick="captureDashboardImage()"
+          title="Capture Full Dashboard"
+          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-sm"
+        >
+          <i data-lucide="camera" class="w-4 h-4"></i>
+          <span class="hidden md:inline" data-i18n="btn_capture">Capture Dashboard</span>
         </button>
 
         <!-- Fullscreen Toggle Button (Notebook / Tablet) -->
@@ -177,6 +193,23 @@
     <!-- TAB 1: DASHBOARD (3 กราฟเรียงซ้ายไปขวาด้านบน + ตารางคะแนนด้านล่าง)      -->
     <!-- ================================================================== -->
     <section id="tab-dashboard" class="tab-section space-y-4">
+
+      <!-- Header Banner ที่แสดงเฉพาะตอนกด Capture ภาพหน้าจอ Dashboard -->
+      <div class="capture-only-header items-center justify-between bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300">
+            <span class="font-extrabold text-sm">FA</span>
+          </div>
+          <div>
+            <h1 class="text-base sm:text-lg font-bold tracking-tight" data-i18n="app_title">Final Assembly - Safety Survey</h1>
+            <p class="text-xs text-slate-300" data-i18n="app_subtitle">ระบบสำรวจและประเมินความปลอดภัยของพนักงานในสายการผลิต</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs font-bold text-teal-300">Safety Survey Dashboard Report</div>
+          <div id="capture-timestamp-label" class="text-[11px] text-slate-300 font-mono"></div>
+        </div>
+      </div>
 
       <!-- KPI Summary Cards + Compact Filter Bar -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -292,14 +325,25 @@
             </div>
           </div>
 
-          <div class="flex gap-2">
+          <div class="flex gap-2" data-capture-ignore="true">
             <button
               type="button"
               onclick="resetDashboardFilters()"
-              class="w-full px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition flex items-center justify-center gap-1.5 h-[38px]"
+              class="flex-1 px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition flex items-center justify-center gap-1 h-[38px]"
+              title="Reset Filters"
             >
-              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-              <span data-i18n="btn_reset_filter">ล้างตัวกรอง</span>
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 shrink-0"></i>
+              <span class="truncate" data-i18n="btn_reset_filter">ล้างตัวกรอง</span>
+            </button>
+            <button
+              type="button"
+              id="btn-capture-dashboard"
+              onclick="captureDashboardImage()"
+              class="flex-1 px-2.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm h-[38px]"
+              title="Capture Full Dashboard"
+            >
+              <i data-lucide="camera" class="w-3.5 h-3.5 shrink-0"></i>
+              <span class="truncate" data-i18n="btn_capture">Capture</span>
             </button>
           </div>
         </div>
@@ -991,7 +1035,7 @@
   <div id="toast-container" class="fixed bottom-20 sm:bottom-6 right-4 z-50 flex flex-col gap-2"></div>
 
   <!-- Application Scripts -->
-  <script src="js/i18n.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/i18n.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>
