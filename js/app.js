@@ -39,6 +39,29 @@ const LINE_COLORS = {
   'Packing & QA': '#059669'
 };
 
+const PALETTE_FALLBACK = [
+  '#0d9488', '#2563eb', '#7c3aed', '#ea580c', '#db2777', '#059669', '#0284c7', '#d97706', '#4f46e5', '#e11d48'
+];
+
+function getLineColor(lineName, idx = 0) {
+  if (LINE_COLORS[lineName]) return LINE_COLORS[lineName];
+  let hash = 0;
+  const str = String(lineName || '');
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return PALETTE_FALLBACK[Math.abs(hash + idx) % PALETTE_FALLBACK.length];
+}
+
+function hexToRgba(hex, alpha = 0.75) {
+  const clean = String(hex || '#0d9488').replace('#', '');
+  const num = parseInt(clean, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 // State ของแอปพลิเคชัน
 const state = {
   lang: localStorage.getItem(STORAGE_KEYS.LANG) || 'th',
@@ -55,6 +78,11 @@ const state = {
     search: ''
   },
   empChartLineFilter: 'ALL',
+  chartTypes: {
+    daily: 'bar',
+    dept: 'bar',
+    bubble: 'bubble'
+  },
   isSyncing: false,
   isConnectedToCloud: false
 };
@@ -62,7 +90,7 @@ const state = {
 // Chart.js Instances
 let dailyChartInstance = null;
 let lineChartInstance = null;
-let empChartInstance = null;
+let bubbleChartInstance = null;
 
 /**
  * เริ่มต้นการทำงานเมื่อเปิดหน้าเว็บ
@@ -687,111 +715,188 @@ function renderDashboard() {
   const filtered = getFilteredSurveys();
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  // คำนวณ KPI
+  // คำนวณ KPI (แสดงคะแนนเฉลี่ยเต็ม 10 และ %)
   const totalCount = filtered.length;
   const todayCount = filtered.filter(s => s.date === todayStr).length;
-  const avgPct = totalCount > 0
-    ? (filtered.reduce((acc, s) => acc + (Number(s.percentage) || 0), 0) / totalCount).toFixed(1)
+  const avgScore10 = totalCount > 0
+    ? (filtered.reduce((acc, s) => {
+        const sc = Number(s.total_score) || 0;
+        const mx = Number(s.max_score) || 10;
+        return acc + ((sc / mx) * 10);
+      }, 0) / totalCount).toFixed(1)
     : '0.0';
   const passCount = filtered.filter(s => (Number(s.percentage) || 0) >= 80).length;
   const passRate = totalCount > 0 ? Math.round((passCount / totalCount) * 100) : 0;
 
   setText('kpi-total-val', totalCount);
   setText('kpi-today-val', todayCount);
-  setText('kpi-avg-val', `${avgPct}%`);
+  setText('kpi-avg-val', `${avgScore10} / 10`);
   setText('kpi-pass-val', `${passRate}%`);
 
+  updateChartToggleButtonsUI();
   renderDailyChart(filtered);
   renderLineChart(filtered);
-  renderEmployeeScoreChart(filtered);
+  renderBubbleScoreChart(filtered);
   renderDashboardMiniTable(filtered);
 }
 
 /**
- * กราฟที่ 1: สรุปจำนวนพนักงานที่ถูก Survey ในแต่ละวัน + คะแนนเฉลี่ยรายวัน
+ * สลับรูปแบบกราฟ (กราฟแท่ง / กราฟเส้น / Bubble) รายกราฟหรือทั้งหมด
+ */
+function setChartType(chartKey, type) {
+  state.chartTypes[chartKey] = type;
+  updateChartToggleButtonsUI();
+  const filtered = getFilteredSurveys();
+  if (chartKey === 'daily') renderDailyChart(filtered);
+  if (chartKey === 'dept') renderLineChart(filtered);
+  if (chartKey === 'bubble') renderBubbleScoreChart(filtered);
+}
+
+function setAllChartsMode(mode) {
+  state.chartTypes.daily = mode;
+  state.chartTypes.dept = mode;
+  if (mode === 'bar' || mode === 'line') {
+    // คงกราฟที่ 3 เป็น Bubble ตามค่าหลัก หรือสลับได้จากปุ่มบนกราฟที่ 3
+  }
+  const barBtn = document.getElementById('global-chart-bar');
+  const lineBtn = document.getElementById('global-chart-line');
+  if (barBtn) barBtn.classList.toggle('active', mode === 'bar');
+  if (lineBtn) lineBtn.classList.toggle('active', mode === 'line');
+
+  updateChartToggleButtonsUI();
+  const filtered = getFilteredSurveys();
+  renderDailyChart(filtered);
+  renderLineChart(filtered);
+}
+
+function updateChartToggleButtonsUI() {
+  const toggleIds = [
+    ['btn-daily-bar', state.chartTypes.daily === 'bar'],
+    ['btn-daily-line', state.chartTypes.daily === 'line'],
+    ['btn-dept-bar', state.chartTypes.dept === 'bar'],
+    ['btn-dept-line', state.chartTypes.dept === 'line'],
+    ['btn-bubble-bubble', state.chartTypes.bubble === 'bubble'],
+    ['btn-bubble-bar', state.chartTypes.bubble === 'bar'],
+    ['btn-bubble-line', state.chartTypes.bubble === 'line']
+  ];
+  toggleIds.forEach(([id, isActive]) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', isActive);
+  });
+}
+
+function toggleFullScreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen?.().catch(() => {});
+  } else {
+    document.exitFullscreen?.().catch(() => {});
+  }
+}
+
+/**
+ * ดึงรายชื่อแผนก/ไลน์ที่มีข้อมูล
+ */
+function getActiveDepartments(surveys) {
+  const deptSet = new Set();
+  surveys.forEach(s => {
+    if (s.line) deptSet.add(s.line);
+  });
+  if (deptSet.size === 0) {
+    PRODUCTION_LINES.slice(0, 4).forEach(l => deptSet.add(l));
+  }
+  return Array.from(deptSet);
+}
+
+/**
+ * กราฟที่ 1 (ซ้าย): กราฟจำนวนพนักงานที่ถูก Survey ในแต่ละวัน (แบ่งตามแผนก)
+ * รองรับการสลับเป็น กราฟแท่ง (Bar) และ กราฟเส้น (Line)
  */
 function renderDailyChart(surveys) {
   const ctx = document.getElementById('chart-daily');
   if (!ctx) return;
 
   const t = I18N[state.lang] || I18N.th;
-  const byDate = {};
+  const chartMode = state.chartTypes.daily || 'bar';
 
+  // รวบรวมวันที่และแผนกทั้งหมด
+  const dateSet = new Set();
   surveys.forEach(s => {
-    const d = s.date || 'Unknown';
-    if (!byDate[d]) {
-      byDate[d] = { count: 0, sumPct: 0 };
-    }
-    byDate[d].count += 1;
-    byDate[d].sumPct += Number(s.percentage) || 0;
+    if (s.date) dateSet.add(s.date);
   });
+  const sortedDates = Array.from(dateSet).sort();
+  const departments = getActiveDepartments(surveys);
 
-  const sortedDates = Object.keys(byDate).sort();
-  const counts = sortedDates.map(d => byDate[d].count);
-  const avgPcts = sortedDates.map(d => Math.round(byDate[d].sumPct / byDate[d].count));
+  const datasets = departments.map((dept, idx) => {
+    const color = getLineColor(dept, idx);
+    const dataCounts = sortedDates.map(d =>
+      surveys.filter(s => s.date === d && s.line === dept).length
+    );
+
+    if (chartMode === 'line') {
+      return {
+        label: dept,
+        data: dataCounts,
+        borderColor: color,
+        backgroundColor: hexToRgba(color, 0.16),
+        borderWidth: 2.5,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: color,
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.35
+      };
+    }
+
+    return {
+      label: dept,
+      data: dataCounts,
+      backgroundColor: hexToRgba(color, 0.85),
+      borderColor: color,
+      borderWidth: 1.5,
+      borderRadius: 6,
+      maxBarThickness: 28
+    };
+  });
 
   if (dailyChartInstance) {
     dailyChartInstance.destroy();
   }
 
   dailyChartInstance = new Chart(ctx, {
-    type: 'bar',
+    type: chartMode,
     data: {
-      labels: sortedDates,
-      datasets: [
-        {
-          type: 'bar',
-          label: t.chart_label_count,
-          data: counts,
-          backgroundColor: 'rgba(13, 148, 136, 0.82)',
-          borderColor: '#0f766e',
-          borderWidth: 1.5,
-          borderRadius: 8,
-          yAxisID: 'yCount',
-          barPercentage: 0.55
-        },
-        {
-          type: 'line',
-          label: t.chart_label_avg_pct,
-          data: avgPcts,
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245, 158, 11, 0.15)',
-          borderWidth: 3,
-          pointBackgroundColor: '#ffffff',
-          pointBorderColor: '#f59e0b',
-          pointBorderWidth: 2.5,
-          pointRadius: 5,
-          tension: 0.3,
-          yAxisID: 'yPct'
-        }
-      ]
+      labels: sortedDates.length > 0 ? sortedDates : ['-'],
+      datasets: datasets
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } },
+        legend: {
+          position: 'bottom',
+          labels: { usePointStyle: true, boxWidth: 8, padding: 12, font: { size: 11 } }
+        },
         tooltip: {
           padding: 10,
-          cornerRadius: 8
+          cornerRadius: 8,
+          callbacks: {
+            label: (context) => ` ${context.dataset.label}: ${context.parsed.y} ${t.unit_people}`
+          }
         }
       },
       scales: {
-        yCount: {
-          type: 'linear',
-          position: 'left',
+        y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, precision: 0 },
-          title: { display: true, text: t.chart_label_count }
+          ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
+          grid: { color: '#f1f5f9' },
+          title: { display: true, text: t.chart_label_count, font: { size: 11, weight: 'bold' } }
         },
-        yPct: {
-          type: 'linear',
-          position: 'right',
-          min: 0,
-          max: 100,
-          grid: { drawOnChartArea: false },
-          title: { display: true, text: '%' }
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11 } }
         }
       }
     }
@@ -799,81 +904,83 @@ function renderDailyChart(surveys) {
 }
 
 /**
- * กราฟที่ 2: แสดง Score เฉลี่ยและจำนวนคนแยกตามแต่ละไลน์การผลิต
+ * กราฟที่ 2 (กลาง): กราฟสรุปจำนวนพนักงานที่ทำการสำรวจ (แบ่งตามแผนก)
+ * รองรับการสลับเป็น กราฟแท่ง (Bar) และ กราฟเส้น (Line)
  */
 function renderLineChart(surveys) {
   const ctx = document.getElementById('chart-line');
   if (!ctx) return;
 
   const t = I18N[state.lang] || I18N.th;
-  const byLine = {};
+  const chartMode = state.chartTypes.dept || 'bar';
+  const departments = getActiveDepartments(surveys);
 
-  surveys.forEach(s => {
-    const ln = s.line || 'Other';
-    if (!byLine[ln]) {
-      byLine[ln] = { count: 0, sumPct: 0, sumScore: 0 };
-    }
-    byLine[ln].count += 1;
-    byLine[ln].sumPct += Number(s.percentage) || 0;
-    byLine[ln].sumScore += Number(s.total_score) || 0;
-  });
-
-  const lines = Object.keys(byLine);
-  const avgPcts = lines.map(l => Math.round(byLine[l].sumPct / byLine[l].count));
-  const counts = lines.map(l => byLine[l].count);
-  const colors = lines.map(l => LINE_COLORS[l] || '#0284c7');
+  const counts = departments.map(dept =>
+    surveys.filter(s => s.line === dept).length
+  );
+  const bgColors = departments.map((dept, idx) => hexToRgba(getLineColor(dept, idx), 0.85));
+  const borderColors = departments.map((dept, idx) => getLineColor(dept, idx));
 
   if (lineChartInstance) {
     lineChartInstance.destroy();
   }
 
+  const datasetConfig = chartMode === 'line'
+    ? {
+        label: t.chart_label_count,
+        data: counts,
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37, 99, 235, 0.14)',
+        borderWidth: 3,
+        pointBackgroundColor: borderColors,
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        fill: true,
+        tension: 0.35
+      }
+    : {
+        label: t.chart_label_count,
+        data: counts,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
+        borderWidth: 1.5,
+        borderRadius: 8,
+        maxBarThickness: 42
+      };
+
   lineChartInstance = new Chart(ctx, {
-    type: 'bar',
+    type: chartMode,
     data: {
-      labels: lines,
-      datasets: [
-        {
-          label: t.chart_label_avg_pct,
-          data: avgPcts,
-          backgroundColor: colors,
-          borderRadius: 8,
-          yAxisID: 'yPct',
-          barPercentage: 0.55
-        },
-        {
-          label: t.chart_label_count,
-          data: counts,
-          backgroundColor: 'rgba(100, 116, 139, 0.25)',
-          borderColor: '#475569',
-          borderWidth: 1.5,
-          borderRadius: 8,
-          yAxisID: 'yCount',
-          barPercentage: 0.45
-        }
-      ]
+      labels: departments,
+      datasets: [datasetConfig]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } }
+        legend: {
+          display: false
+        },
+        tooltip: {
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: (context) => ` ${context.label}: ${context.parsed.y} ${t.unit_people}`
+          }
+        }
       },
       scales: {
-        yPct: {
-          type: 'linear',
-          position: 'left',
-          min: 0,
-          max: 100,
-          title: { display: true, text: '%' }
-        },
-        yCount: {
-          type: 'linear',
-          position: 'right',
+        y: {
           beginAtZero: true,
-          grid: { drawOnChartArea: false },
-          ticks: { stepSize: 1, precision: 0 },
-          title: { display: true, text: t.chart_label_count }
+          ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
+          grid: { color: '#f1f5f9' },
+          title: { display: true, text: t.chart_label_count, font: { size: 11, weight: 'bold' } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: '600' } }
         }
       }
     }
@@ -881,7 +988,216 @@ function renderLineChart(surveys) {
 }
 
 /**
- * ปุ่มเลือกกรองเฉพาะไลน์สำหรับกราฟคะแนนรายบุคคล
+ * กราฟที่ 3 (ขวา): Bubble Chart แสดงผลคะแนนเฉลี่ยของแต่ละแผนก (แยกสีตามแผนก)
+ * แกน X = หมวดหมู่ (หมวดที่ 1, หมวดที่ 2, หมวดที่ 3, คะแนนรวม)
+ * แกน Y = คะแนน 1 - 10
+ */
+function renderBubbleScoreChart(surveys) {
+  const ctx = document.getElementById('chart-bubble');
+  if (!ctx) return;
+
+  const t = I18N[state.lang] || I18N.th;
+  const chartMode = state.chartTypes.bubble || 'bubble';
+  const departments = getActiveDepartments(surveys);
+
+  // นิยามหมวดหมู่บนแกน X (แปลงคะแนนแต่ละหมวดเป็นสเกลเต็ม 10 เพื่อให้เปรียบเทียบบนแกน Y = 1-10 ได้ชัดเจน)
+  const categoryDefs = [
+    { x: 1, label: t.cat_short_1 || 'หมวดที่ 1', qIds: ['Q1', 'Q2'], maxRaw: 2 },
+    { x: 2, label: t.cat_short_2 || 'หมวดที่ 2', qIds: ['Q3', 'Q4'], maxRaw: 4 },
+    { x: 3, label: t.cat_short_3 || 'หมวดที่ 3', qIds: ['Q5', 'Q6'], maxRaw: 4 },
+    { x: 4, label: t.cat_short_total || 'คะแนนรวม', qIds: null, maxRaw: 10 }
+  ];
+
+  // คำนวณคะแนนเฉลี่ย (สเกล 1-10) ของแต่ละแผนกในแต่ละหมวดหมู่
+  function calcDeptCategoryScore10(deptSurveys, catDef) {
+    if (!deptSurveys || deptSurveys.length === 0) return 0;
+
+    let sumScaled10 = 0;
+    deptSurveys.forEach(s => {
+      const totalSc = Number(s.total_score) || 0;
+      const totalMx = Number(s.max_score) || 10;
+      const overall10 = totalMx > 0 ? (totalSc / totalMx) * 10 : 0;
+
+      if (!catDef.qIds) {
+        sumScaled10 += overall10;
+        return;
+      }
+
+      const ans = s.answers || {};
+      const hasAnswers = catDef.qIds.some(qid => ans[qid] !== undefined);
+      if (hasAnswers) {
+        const rawCatScore = catDef.qIds.reduce((acc, qid) => acc + (Number(ans[qid]) || 0), 0);
+        sumScaled10 += (rawCatScore / catDef.maxRaw) * 10;
+      } else {
+        // กรณีกรอกเฉพาะคะแนนรวมในชีต ให้ใช้สัดส่วนคะแนนรวมแทน
+        sumScaled10 += overall10;
+      }
+    });
+
+    return Number((sumScaled10 / deptSurveys.length).toFixed(2));
+  }
+
+  if (bubbleChartInstance) {
+    bubbleChartInstance.destroy();
+  }
+
+  // กรณีเลือกแสดงเป็น Bubble Chart (ค่าเริ่มต้นตามโจทย์)
+  if (chartMode === 'bubble') {
+    const datasets = departments.map((dept, idx) => {
+      const color = getLineColor(dept, idx);
+      const deptSurveys = surveys.filter(s => s.line === dept);
+      const empCount = deptSurveys.length;
+      const radius = empCount > 0 ? Math.min(20, Math.max(8, 6 + empCount * 2.5)) : 0;
+
+      // เยื้องตำแหน่ง X เล็กน้อยหากมีหลายแผนกเพื่อไม่ให้ฟองทับกันสนิท
+      const jitter = departments.length > 1
+        ? ((idx - (departments.length - 1) / 2) * 0.08)
+        : 0;
+
+      const points = empCount > 0
+        ? categoryDefs.map(cat => ({
+            x: Number((cat.x + jitter).toFixed(2)),
+            y: calcDeptCategoryScore10(deptSurveys, cat),
+            r: radius,
+            rawCatLabel: cat.label,
+            empCount: empCount
+          }))
+        : [];
+
+      return {
+        label: dept,
+        data: points,
+        backgroundColor: hexToRgba(color, 0.7),
+        borderColor: color,
+        borderWidth: 2,
+        hoverRadius: radius + 3
+      };
+    });
+
+    bubbleChartInstance = new Chart(ctx, {
+      type: 'bubble',
+      data: { datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { usePointStyle: true, boxWidth: 8, padding: 12, font: { size: 11 } }
+          },
+          tooltip: {
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              label: (context) => {
+                const raw = context.raw || {};
+                return [
+                  ` ${context.dataset.label} (${raw.rawCatLabel || ''})`,
+                  ` Score: ${raw.y} / 10 (${raw.empCount || 0} ${t.unit_people})`
+                ];
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            min: 0.4,
+            max: 4.6,
+            grid: { color: '#f1f5f9' },
+            ticks: {
+              stepSize: 1,
+              font: { size: 11, weight: '600' },
+              callback: (val) => {
+                const found = categoryDefs.find(c => c.x === Math.round(val) && Math.abs(val - c.x) < 0.15);
+                return found ? found.label : '';
+              }
+            },
+            title: { display: true, text: t.q_col_category || 'หมวดหมู่', font: { size: 11, weight: 'bold' } }
+          },
+          y: {
+            min: 0,
+            max: 10.5,
+            grid: { color: '#f1f5f9' },
+            ticks: {
+              stepSize: 1,
+              font: { size: 11 },
+              callback: (val) => (val >= 1 && val <= 10 && Number.isInteger(val)) ? val : ''
+            },
+            title: { display: true, text: t.chart_label_avg_pct || 'คะแนน (1-10)', font: { size: 11, weight: 'bold' } }
+          }
+        }
+      }
+    });
+    return;
+  }
+
+  // กรณีสลับกราฟที่ 3 เป็น กราฟแท่ง (Bar) หรือ กราฟเส้น (Line)
+  const catLabels = categoryDefs.map(c => c.label);
+  const altDatasets = departments.map((dept, idx) => {
+    const color = getLineColor(dept, idx);
+    const deptSurveys = surveys.filter(s => s.line === dept);
+    const scores = categoryDefs.map(cat => calcDeptCategoryScore10(deptSurveys, cat));
+
+    if (chartMode === 'line') {
+      return {
+        label: dept,
+        data: scores,
+        borderColor: color,
+        backgroundColor: hexToRgba(color, 0.15),
+        borderWidth: 2.5,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: color,
+        pointRadius: 4,
+        tension: 0.35
+      };
+    }
+
+    return {
+      label: dept,
+      data: scores,
+      backgroundColor: hexToRgba(color, 0.85),
+      borderColor: color,
+      borderWidth: 1.5,
+      borderRadius: 6
+    };
+  });
+
+  bubbleChartInstance = new Chart(ctx, {
+    type: chartMode,
+    data: {
+      labels: catLabels,
+      datasets: altDatasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { usePointStyle: true, boxWidth: 8, padding: 12, font: { size: 11 } }
+        }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 10,
+          ticks: { stepSize: 1, font: { size: 11 } },
+          grid: { color: '#f1f5f9' },
+          title: { display: true, text: t.chart_label_avg_pct || 'คะแนน (1-10)', font: { size: 11, weight: 'bold' } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: '600' } }
+        }
+      }
+    }
+  });
+}
+
+/**
+ * ปุ่มเลือกกรองเฉพาะไลน์สำหรับตารางคะแนนรายบุคคลด้านล่าง Dashboard
  */
 function renderEmpChartLinePills(lines) {
   const container = document.getElementById('emp-chart-line-pills');
@@ -902,122 +1218,60 @@ function renderEmpChartLinePills(lines) {
 function setEmpChartLine(line) {
   state.empChartLineFilter = line;
   populateLineOptions();
-  renderEmployeeScoreChart(getFilteredSurveys());
+  renderDashboardMiniTable(getFilteredSurveys());
 }
 
 /**
- * กราฟที่ 3: แสดง Score ของพนักงานแต่ละคน และแยกตามไลน์
- */
-function renderEmployeeScoreChart(surveys) {
-  const ctx = document.getElementById('chart-employee');
-  if (!ctx) return;
-
-  const t = I18N[state.lang] || I18N.th;
-  let dataList = [...surveys];
-  if (state.empChartLineFilter !== 'ALL') {
-    dataList = dataList.filter(s => s.line === state.empChartLineFilter);
-  }
-
-  // เรียงตามวันที่ล่าสุดและแสดงสูงสุด 25 รายการเพื่อให้กราฟอ่านง่ายบนมือถือและโน้ตบุ๊ก
-  const displayList = dataList.slice(-25);
-
-  const labels = displayList.map(s => `${s.employee_name || s.employee_id} (${s.line})`);
-  const scoresPct = displayList.map(s => Number(s.percentage) || 0);
-  const bgColors = displayList.map(s => LINE_COLORS[s.line] || '#0d9488');
-
-  if (empChartInstance) {
-    empChartInstance.destroy();
-  }
-
-  empChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: t.chart_label_emp_score,
-          data: scoresPct,
-          backgroundColor: bgColors,
-          borderRadius: 6,
-          barPercentage: 0.65
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const item = displayList[context.dataIndex];
-              if (!item) return '';
-              return [
-                `${item.employee_name} (${item.employee_id})`,
-                `Line: ${item.line} | Date: ${item.date}`,
-                `Score: ${item.total_score}/${item.max_score} (${item.percentage}%)`
-              ];
-            }
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          title: { display: true, text: 'Score (%)' }
-        },
-        x: {
-          ticks: {
-            maxRotation: 40,
-            minRotation: 25,
-            font: { size: 11 }
-          }
-        }
-      }
-    }
-  });
-}
-
-/**
- * ตารางสรุปคะแนนรายบุคคลและรายไลน์ด้านล่าง Dashboard
+ * ตารางสรุปคะแนนของพนักงานแต่ละคน และแยกตามไลน์ (Individual Score & Line) ด้านล่าง Dashboard
  */
 function renderDashboardMiniTable(surveys) {
   const tbody = document.getElementById('dashboard-recent-tbody');
   if (!tbody) return;
 
-  const recent = [...surveys].reverse().slice(0, 10);
-  if (recent.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">ยังไม่มีข้อมูลที่ตรงกับตัวกรอง</td></tr>`;
+  let displayList = [...surveys].reverse();
+  if (state.empChartLineFilter !== 'ALL') {
+    displayList = displayList.filter(s => s.line === state.empChartLineFilter);
+  }
+
+  if (displayList.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-slate-400">ยังไม่มีข้อมูลการสำรวจในชีต Survey list</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = recent.map(s => {
+  tbody.innerHTML = displayList.map((s, idx) => {
     const pct = Number(s.percentage) || 0;
     const badgeColor = pct >= 80
       ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
       : pct >= 60
         ? 'bg-amber-100 text-amber-800 border-amber-200'
         : 'bg-rose-100 text-rose-800 border-rose-200';
-    const lineColor = LINE_COLORS[s.line] || '#0d9488';
+    const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-rose-500';
+    const lineColor = getLineColor(s.line, idx);
 
     return `
-      <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition">
+      <tr class="border-b border-slate-100 hover:bg-slate-50/90 transition">
         <td class="py-3 px-4 text-xs font-medium text-slate-600 whitespace-nowrap">${escapeHtml(s.date)}</td>
         <td class="py-3 px-4 whitespace-nowrap">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold text-white" style="background-color: ${lineColor}">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold text-white shadow-sm" style="background-color: ${lineColor}">
             ${escapeHtml(s.line)}
           </span>
         </td>
-        <td class="py-3 px-4 text-xs font-mono font-semibold text-slate-700 whitespace-nowrap">${escapeHtml(s.employee_id)}</td>
-        <td class="py-3 px-4 text-sm font-medium text-slate-900">${escapeHtml(s.employee_name)}</td>
-        <td class="py-3 px-4 text-center font-bold text-slate-800 whitespace-nowrap">${s.total_score} / ${s.max_score}</td>
+        <td class="py-3 px-4 text-xs font-mono font-bold text-slate-700 whitespace-nowrap">${escapeHtml(s.employee_id)}</td>
+        <td class="py-3 px-4 text-sm font-semibold text-slate-900">${escapeHtml(s.employee_name)}</td>
+        <td class="py-3 px-4 text-xs text-slate-600 whitespace-nowrap">${escapeHtml(s.auditor || '-')}</td>
+        <td class="py-3 px-4 text-center whitespace-nowrap">
+          <div class="inline-flex flex-col items-center w-28">
+            <span class="font-extrabold text-slate-800 text-xs mb-1">${s.total_score} / ${s.max_score}</span>
+            <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div class="h-full ${barColor} rounded-full" style="width: ${Math.min(100, Math.max(0, pct))}%"></div>
+            </div>
+          </div>
+        </td>
         <td class="py-3 px-4 text-center whitespace-nowrap">
           <span class="px-2.5 py-1 rounded-full text-xs font-bold border ${badgeColor}">${pct}%</span>
         </td>
         <td class="py-3 px-4 text-right whitespace-nowrap">
-          <button type="button" onclick="openSurveyDetailModal('${escapeHtml(s.survey_id)}')" class="text-teal-700 hover:text-teal-900 text-xs font-semibold underline">
+          <button type="button" onclick="openSurveyDetailModal('${escapeHtml(s.survey_id)}')" class="px-3 py-1.5 rounded-lg bg-teal-50 text-teal-800 hover:bg-teal-100 text-xs font-semibold transition">
             ${I18N[state.lang].btn_view_detail}
           </button>
         </td>
