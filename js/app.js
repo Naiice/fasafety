@@ -817,6 +817,171 @@ function toggleFullScreen() {
 }
 
 /**
+ * Capture หน้าจอ Dashboard ทั้งหน้าเป็นไฟล์รูปภาพ PNG ความละเอียดสูง
+ * โดยล็อกขนาดกราฟ แปลง Canvas เป็นรูปภาพขนาดเท่าจริง และใช้ฟอนต์ของระบบโดยตรงเพื่อไม่ให้กราฟและตัวอักษรเคลื่อน
+ */
+async function captureDashboardImage() {
+  const t = I18N[state.lang] || I18N.th;
+
+  // หากไม่ได้อยู่แท็บ Dashboard ให้สลับมาที่แท็บ Dashboard ก่อน
+  if (state.activeTab !== 'dashboard') {
+    switchTab('dashboard');
+    await new Promise(r => setTimeout(r, 350));
+  }
+
+  const dashboardEl = document.getElementById('tab-dashboard');
+  if (!dashboardEl) return;
+
+  showToast(t.msg_capturing || 'กำลังประมวลผลภาพหน้าจอ Dashboard...', 'info');
+
+  const restoreTasks = [];
+
+  try {
+    // 1. รอให้ฟอนต์ภาษาไทย/จีน/พม่า โหลดเสร็จสมบูรณ์ 100%
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+
+    // 2. อัปเดตเวลาที่กด Capture บนแบนเนอร์หัวกระดาษ
+    const tsEl = document.getElementById('capture-timestamp-label');
+    if (tsEl) {
+      const now = new Date();
+      tsEl.textContent = now.toLocaleString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    // 3. ล็อกความกว้างของ Container เพื่อไม่ให้ Responsive Grid ขยับระหว่างสร้างภาพ
+    const exactWidth = dashboardEl.offsetWidth;
+    const prevWidthStyle = dashboardEl.style.width;
+    const prevMaxWidthStyle = dashboardEl.style.maxWidth;
+    dashboardEl.style.width = `${exactWidth}px`;
+    dashboardEl.style.maxWidth = `${exactWidth}px`;
+    restoreTasks.push(() => {
+      dashboardEl.style.width = prevWidthStyle;
+      dashboardEl.style.maxWidth = prevMaxWidthStyle;
+    });
+
+    // 4. แช่แข็งกราฟ Chart.js ทั้ง 3 กราฟด้วยการแปลง <canvas> เป็น <img> ขนาดพิกเซลตรงเป๊ะ 1:1
+    const canvases = Array.from(dashboardEl.querySelectorAll('canvas'));
+    for (const canvas of canvases) {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+
+      const parent = canvas.parentElement;
+      const prevParentWidth = parent ? parent.style.width : '';
+      const prevParentHeight = parent ? parent.style.height : '';
+      if (parent) {
+        parent.style.width = `${rect.width}px`;
+        parent.style.height = `${rect.height}px`;
+      }
+
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      const snapshotImg = document.createElement('img');
+      snapshotImg.src = dataUrl;
+      snapshotImg.alt = 'Chart Snapshot';
+      snapshotImg.style.width = `${rect.width}px`;
+      snapshotImg.style.height = `${rect.height}px`;
+      snapshotImg.style.display = 'block';
+      snapshotImg.style.objectFit = 'contain';
+      snapshotImg.style.pointerEvents = 'none';
+
+      await new Promise((resolve) => {
+        snapshotImg.onload = resolve;
+        snapshotImg.onerror = resolve;
+      });
+
+      const prevCanvasDisplay = canvas.style.display;
+      canvas.style.display = 'none';
+      if (parent) parent.appendChild(snapshotImg);
+
+      restoreTasks.push(() => {
+        if (snapshotImg.parentNode) snapshotImg.parentNode.removeChild(snapshotImg);
+        canvas.style.display = prevCanvasDisplay;
+        if (parent) {
+          parent.style.width = prevParentWidth;
+          parent.style.height = prevParentHeight;
+        }
+      });
+    }
+
+    // 5. เปิดคโหมด .capturing-dashboard (ปิด blur/animation ที่ทำให้ฟอนต์เคลื่อน และแสดง Header รายงาน)
+    dashboardEl.classList.add('capturing-dashboard');
+    restoreTasks.push(() => {
+      dashboardEl.classList.remove('capturing-dashboard');
+    });
+
+    // รอ 1 เฟรมให้เบราว์เซอร์จัดวาง DOM ที่ล็อกขนาดแล้ว
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    let pngDataUrl = null;
+
+    // 6. ใช้ modern-screenshot (SVG foreignObject ของเบราว์เซอร์โดยตรง ทำให้สระ/วรรณยุกต์ไทยและ Flexbox ไม่เคลื่อน 100%)
+    if (window.modernScreenshot && typeof window.modernScreenshot.domToPng === 'function') {
+      try {
+        pngDataUrl = await window.modernScreenshot.domToPng(dashboardEl, {
+          scale: 2,
+          backgroundColor: '#f1f5f9',
+          style: {
+            margin: '0',
+            transform: 'none'
+          }
+        });
+      } catch (errModern) {
+        console.warn('modern-screenshot fallback to html2canvas:', errModern);
+      }
+    }
+
+    // 7. Fallback ด้วย html2canvas หากจำเป็น
+    if (!pngDataUrl && typeof window.html2canvas === 'function') {
+      const renderedCanvas = await window.html2canvas(dashboardEl, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#f1f5f9',
+        logging: false,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: document.documentElement.scrollHeight
+      });
+      pngDataUrl = renderedCanvas.toDataURL('image/png', 1.0);
+    }
+
+    if (!pngDataUrl) {
+      throw new Error('Capture engine unavailable');
+    }
+
+    // 8. ดาวน์โหลดไฟล์ภาพ PNG
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const fileName = `FA_Safety_Dashboard_${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.png`;
+
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = pngDataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast(t.msg_capture_done || 'บันทึกภาพหน้าจอ Dashboard เรียบร้อยแล้ว!', 'success');
+  } catch (err) {
+    console.error('Dashboard capture error:', err);
+    showToast(t.msg_capture_error || 'เกิดข้อผิดพลาดในการบันทึกภาพหน้าจอ', 'error');
+  } finally {
+    // คืนค่า DOM และ Canvas กลับสู่สถานะปกติทั้งหมด
+    while (restoreTasks.length > 0) {
+      const fn = restoreTasks.pop();
+      try { fn(); } catch (e) {}
+    }
+  }
+}
+
+/**
  * ดึงรายชื่อแผนก/ไลน์ที่มีข้อมูล
  */
 function getActiveDepartments(surveys) {
