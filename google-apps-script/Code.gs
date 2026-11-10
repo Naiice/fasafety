@@ -5,9 +5,9 @@
  * Spreadsheet ID: 1bM68aArN9WAbwrvFrKC1hpAy335SSgzZPZBtDp-Znpc
  * URL: https://docs.google.com/spreadsheets/d/1bM68aArN9WAbwrvFrKC1hpAy335SSgzZPZBtDp-Znpc/edit
  *
- * รองรับโครงสร้างตารางจริงใน Google Sheets:
- * - ชีตที่ 1: "Question" (คอลัมน์ B = หัวข้อหมวดหมู่/คำถามภาษาไทย, C = Score, D = ภาษาจีน, E = ภาษาพม่า)
- * - ชีตที่ 2: "Survey list" (คอลัมน์ B = Date, C = Employee ID, D = Name, E = Line, F = Score, G = Note/Auditor, H = Breakdown JSON)
+ * รองรับการทำงาน 2 รูปแบบ:
+ * 1. เป็น Backend API ให้กับเว็บแอพบน GitHub Pages (ผ่าน doGet / doPost)
+ * 2. รันหน้าเว็บแอพโดยตรงผ่าน google.script.run (หากสร้างไฟล์ index.html ใน Apps Script)
  * ============================================================================
  */
 
@@ -23,12 +23,8 @@ function getSpreadsheet() {
   }
 }
 
-/**
- * ตรวจสอบชีต "Question" และ "Survey list"
- */
 function setupSheets() {
   const ss = getSpreadsheet();
-
   let qSheet = ss.getSheetByName(SHEET_QUESTIONS);
   if (!qSheet) {
     qSheet = ss.insertSheet(SHEET_QUESTIONS);
@@ -41,31 +37,45 @@ function setupSheets() {
       'Date', 'Employee ID', 'Name', 'Line', 'Score', 'Note', 'Details_JSON'
     ]]).setFontWeight('bold');
   }
-
   return { status: 'ok', message: 'Sheets ready' };
 }
 
 /**
- * รองรับ GET Request: ดึงข้อมูลจากชีต "Question" และ "Survey list"
+ * รองรับ GET Request จากเว็บแอพ (GitHub Pages / Mobile / Notebook)
  */
 function doGet(e) {
   try {
     setupSheets();
-    const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'getAll';
+    const callback = (e && e.parameter && e.parameter.callback) ? e.parameter.callback : null;
 
-    if (action === 'getQuestions') {
-      return jsonResponse({ status: 'ok', questions: getQuestionsData() });
-    }
-    if (action === 'getSurveys') {
-      return jsonResponse({ status: 'ok', surveys: getSurveysData() });
+    let resultPayload;
+    // รองรับการส่งคำสั่งบันทึก/แก้ไขผ่านพารามิเตอร์ payload (JSONP / GET) เพื่อไม่ให้ติด CORS เวลาเปิดจาก file:// หรือ GitHub Pages
+    if (e && e.parameter && e.parameter.payload) {
+      const parsedPayload = JSON.parse(e.parameter.payload);
+      resultPayload = processActionPayload(parsedPayload);
+    } else {
+      const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'getAll';
+      if (action === 'getQuestions') {
+        resultPayload = { status: 'ok', questions: getQuestionsData() };
+      } else if (action === 'getSurveys') {
+        resultPayload = { status: 'ok', surveys: getSurveysData() };
+      } else {
+        resultPayload = {
+          status: 'ok',
+          questions: getQuestionsData(),
+          surveys: getSurveysData(),
+          serverTime: new Date().toISOString()
+        };
+      }
     }
 
-    return jsonResponse({
-      status: 'ok',
-      questions: getQuestionsData(),
-      surveys: getSurveysData(),
-      serverTime: new Date().toISOString()
-    });
+    if (callback) {
+      return ContentService
+        .createTextOutput(callback + '(' + JSON.stringify(resultPayload) + ');')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+
+    return jsonResponse(resultPayload);
   } catch (err) {
     return jsonResponse({ status: 'error', message: err.toString() });
   }
@@ -84,38 +94,54 @@ function doPost(e) {
       payload = e.parameter;
     }
 
-    const action = payload.action;
-
-    if (action === 'saveQuestion') {
-      saveQuestionToSheet(payload.question, payload.allQuestions);
-      return jsonResponse({ status: 'ok', questions: getQuestionsData() });
-    }
-
-    if (action === 'deleteQuestion') {
-      if (Array.isArray(payload.allQuestions)) {
-        writeQuestionsTable(payload.allQuestions);
-      }
-      return jsonResponse({ status: 'ok', questions: getQuestionsData() });
-    }
-
-    if (action === 'saveAllQuestions') {
-      writeQuestionsTable(payload.questions || []);
-      return jsonResponse({ status: 'ok', questions: getQuestionsData() });
-    }
-
-    if (action === 'submitSurvey') {
-      const saved = appendSurveyRow(payload.survey);
-      return jsonResponse({ status: 'ok', survey: saved, surveys: getSurveysData() });
-    }
-
-    return jsonResponse({ status: 'error', message: 'Unknown action: ' + action });
+    return jsonResponse(processActionPayload(payload));
   } catch (err) {
     return jsonResponse({ status: 'error', message: err.toString() });
   }
 }
 
 /**
- * อ่านข้อมูลคำถามจากชีต "Question" (รองรับโครงสร้าง B2:E12 ที่จัดกลุ่มตามหมวดที่ 1, 2, 3)
+ * ฟังก์ชันกลางสำหรับประมวลผลคำสั่ง (รองรับทั้ง doPost และ google.script.run)
+ */
+function processActionPayload(payload) {
+  setupSheets();
+  const action = payload.action;
+
+  if (action === 'getAll') {
+    return {
+      status: 'ok',
+      questions: getQuestionsData(),
+      surveys: getSurveysData()
+    };
+  }
+
+  if (action === 'saveQuestion') {
+    saveQuestionToSheet(payload.question, payload.allQuestions);
+    return { status: 'ok', questions: getQuestionsData() };
+  }
+
+  if (action === 'deleteQuestion') {
+    if (Array.isArray(payload.allQuestions)) {
+      writeQuestionsTable(payload.allQuestions);
+    }
+    return { status: 'ok', questions: getQuestionsData() };
+  }
+
+  if (action === 'saveAllQuestions') {
+    writeQuestionsTable(payload.questions || []);
+    return { status: 'ok', questions: getQuestionsData() };
+  }
+
+  if (action === 'submitSurvey') {
+    const saved = appendSurveyRow(payload.survey);
+    return { status: 'ok', survey: saved, surveys: getSurveysData() };
+  }
+
+  return { status: 'error', message: 'Unknown action: ' + action };
+}
+
+/**
+ * อ่านข้อมูลคำถามจากชีต "Question" (คอลัมน์ B = Category/คำถามไทย, C = Score, D = จีน, E = พม่า)
  */
 function getQuestionsData() {
   const ss = getSpreadsheet();
@@ -124,11 +150,11 @@ function getQuestionsData() {
   if (lastRow < 3) return [];
 
   const maxCol = Math.max(5, sheet.getLastColumn());
-  const values = sheet.getRange(2, 2, lastRow - 1, maxCol - 1).getValues(); // เริ่มจาก B2
+  const values = sheet.getRange(2, 2, lastRow - 1, maxCol - 1).getValues();
 
   const questions = [];
-  let currentCategoryTh = 'ทั่วไป (General)';
-  let currentCategoryZh = '常规安全 (General)';
+  let currentCategoryTh = 'หมวดทั่วไป';
+  let currentCategoryZh = '常规安全';
   let currentCategoryMy = 'အထွေထွေ လုံခြုံရေး';
   let qCounter = 1;
 
@@ -139,9 +165,8 @@ function getQuestionsData() {
     const colD = String(row[2] || '').trim();
     const colE = String(row[3] || '').trim();
 
-    if (!colB) continue; // ข้ามแถวผลรวมคะแนนสุดท้าย
+    if (!colB) continue;
 
-    // ตรวจสอบว่าเป็นแถวหัวข้อหมวดหมู่หรือไม่ (เช่น "หมวดที่ 1: ...")
     if (colB.indexOf('หมวดที่') === 0 || colB.toLowerCase().indexOf('category') === 0) {
       currentCategoryTh = colB;
       currentCategoryZh = colD || colB;
@@ -167,17 +192,12 @@ function getQuestionsData() {
   return questions;
 }
 
-/**
- * บันทึกหรืออัปเดตตารางคำถามลงชีต "Question" โดยคงรูปแบบหมวดหมู่และผลรวมคะแนน
- */
 function saveQuestionToSheet(question, allQuestions) {
   if (Array.isArray(allQuestions) && allQuestions.length > 0) {
     writeQuestionsTable(allQuestions);
     return;
   }
 
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_QUESTIONS);
   const currentList = getQuestionsData();
   const idx = currentList.findIndex(q => q.id === question.id);
   if (idx !== -1) {
@@ -188,9 +208,6 @@ function saveQuestionToSheet(question, allQuestions) {
   writeQuestionsTable(currentList);
 }
 
-/**
- * เขียนตารางคำถามลงชีต "Question" ตามโครงสร้าง B2:E... พร้อมคำนวณคะแนนรวมแยกหมวดและคะแนนรวมทั้งหมด
- */
 function writeQuestionsTable(questions) {
   const ss = getSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_QUESTIONS);
@@ -203,7 +220,6 @@ function writeQuestionsTable(questions) {
     ['Category', 'Score', 'Question_ZH (中文)', 'Question_MY (မြန်မာ)']
   ];
 
-  // จัดกลุ่มตาม category
   const grouped = {};
   const categoryOrder = [];
   questions.forEach(q => {
@@ -239,14 +255,12 @@ function writeQuestionsTable(questions) {
     });
   });
 
-  // แถวสุดท้ายแสดงผลรวมคะแนนเต็มทั้งหมด (เช่น 10)
   rows.push(['', grandTotal, '', '']);
-
   sheet.getRange(2, 2, rows.length, 4).setValues(rows);
 }
 
 /**
- * อ่านข้อมูลจากชีต "Survey list" (เริ่มที่ B2: Date | Employee ID | Name | Line | Score)
+ * อ่านข้อมูลจากชีต "Survey list" (B2: Date | Employee ID | Name | Line | Score)
  */
 function getSurveysData() {
   const ss = getSpreadsheet();
@@ -255,7 +269,7 @@ function getSurveysData() {
   if (lastRow <= 2) return [];
 
   const maxCol = Math.max(8, sheet.getLastColumn());
-  const values = sheet.getRange(3, 2, lastRow - 2, maxCol - 1).getValues(); // เริ่มจาก B3
+  const values = sheet.getRange(3, 2, lastRow - 2, maxCol - 1).getValues();
   const tz = Session.getScriptTimeZone() || 'Asia/Bangkok';
 
   const surveys = [];
@@ -269,7 +283,6 @@ function getSurveysData() {
     const note = String(r[5] || '').trim();
     const detailsJson = String(r[6] || '').trim();
 
-    // ข้ามแถวที่ยังไม่ได้กรอกข้อมูลพนักงาน
     if (!empId && !empName && (scoreVal === '' || scoreVal === null)) {
       continue;
     }
@@ -304,7 +317,7 @@ function getSurveysData() {
       timestamp: extra.timestamp || dateStr,
       employee_id: empId || '-',
       employee_name: empName || empId || '-',
-      line: line || 'FA-Line 1',
+      line: line || 'Line1',
       auditor: extra.auditor || '',
       total_score: totalScore,
       max_score: maxScore,
@@ -318,7 +331,7 @@ function getSurveysData() {
 }
 
 /**
- * บันทึกผลสำรวจใหม่ลงชีต "Survey list" (คอลัมน์ B = Date, C = Employee ID, D = Name, E = Line, F = Score)
+ * บันทึกผลสำรวจใหม่ลงชีต "Survey list" (B = Date, C = Employee ID, D = Name, E = Line, F = Score)
  */
 function appendSurveyRow(s) {
   const ss = getSpreadsheet();
@@ -337,7 +350,6 @@ function appendSurveyRow(s) {
     answers: s.answers || {}
   };
 
-  // ค้นหาแถวว่างแถวแรกในคอลัมน์ C (Employee ID) ตั้งแต่แถวที่ 3 เป็นต้นไป
   const lastRow = Math.max(2, sheet.getLastRow());
   let targetRow = lastRow + 1;
   if (lastRow >= 3) {
